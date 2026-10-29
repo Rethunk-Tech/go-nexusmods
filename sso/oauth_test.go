@@ -175,11 +175,18 @@ func TestTheDefaultPagesAreNeutral(t *testing.T) {
 		u, _ := url.Parse(raw)
 		go func() {
 			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, u.Query().Get("redirect_uri")+"?error=access_denied&state="+u.Query().Get("state"), nil)
-			if resp, err := http.DefaultClient.Do(req); err == nil {
-				b, _ := io.ReadAll(resp.Body)
-				_ = resp.Body.Close()
-				page <- string(b)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				page <- "request failed: " + err.Error()
+				return
 			}
+			b, err := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if err != nil {
+				page <- "read failed: " + err.Error()
+				return
+			}
+			page <- string(b)
 		}()
 		return nil
 	}}

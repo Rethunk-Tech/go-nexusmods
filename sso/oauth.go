@@ -115,6 +115,9 @@ func (o OAuth) listen(ctx context.Context) (net.Listener, error) {
 	return nil, fmt.Errorf("could not listen on %s: %w", o.Addr, err)
 }
 
+// shutdownGrace bounds how long a finished sign-in waits for the browser to receive its page.
+const shutdownGrace = 2 * time.Second
+
 type callbackResult struct{ code, err string }
 
 // callback answers the redirect Nexus sends the browser to, for the state this run issued, and passes its outcome on.
@@ -167,7 +170,12 @@ func (o OAuth) Authorize(ctx context.Context) (Tokens, error) {
 	got := make(chan callbackResult, 1)
 	srv := &http.Server{ReadHeaderTimeout: 10 * time.Second, Handler: o.callback(state, got)}
 	go func() { _ = srv.Serve(ln) }()
-	defer func() { _ = srv.Close() }()
+	// Shutdown, not Close: the callback signals before its page reaches the browser, and Close would reset it.
+	defer func() {
+		done, stop := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
+		defer stop()
+		_ = srv.Shutdown(done)
+	}()
 
 	q := url.Values{
 		"response_type":         {"code"},
