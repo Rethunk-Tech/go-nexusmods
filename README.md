@@ -11,8 +11,12 @@
 
 A Go client for the Nexus Mods API: REST and GraphQL calls, the rate-limit budget, nxm:// links and the two sign-in flows. Package `nexusmods`, module `github.com/Rethunk-Tech/go-nexusmods`.
 
-<!-- scaffold: one short paragraph on what the package guarantees and why it exists, in plain
-words. -->
+Nexus asks every app to say who it is and to stay inside its hourly and daily budget. This client does both by
+construction: it sends the name and version you give it on every request, reads the `X-Rl-*` headers, and refuses to
+send once a window is nearly spent. It never fetches a mod file: the free path needs an `nxm://` link from Nexus's own
+Mod Manager Download button, and the premium paths are named `Premium...` so `grep Premium` finds each. The caller sets
+the User-Agent (an `httpkit.Transport` does it) and owns token storage; `WithKey` and `WithBearer` copies share one
+budget.
 
 ## Quick start
 
@@ -24,7 +28,11 @@ A worked example and the contracts: [HUMANS.md](HUMANS.md).
 
 ## Features
 
-<!-- scaffold: 3 to 6 bullets, each a capability a caller can rely on. No roadmap. -->
+- REST and GraphQL reads: account, mod pages, files, changelogs, categories, scan status, tracked mods, collections.
+- Batched lookups of many mods or files, one request per 50.
+- `nxm://` and mod-page link parsing that refuses anything but the exact forms.
+- A live rate-limit budget and typed errors (`httpkit.StatusError`, `httpkit.RateLimitError`).
+- Sign-in in package `sso`: legacy SSO and OAuth 2 PKCE with a loopback callback.
 
 ## Documentation
 
