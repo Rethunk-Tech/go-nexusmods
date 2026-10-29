@@ -6,6 +6,8 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-29
+
 ### Added
 
 - `nexusmods.Client`: account, mod pages, files, changelogs, categories, scan statuses, endorsements, tracked mods
@@ -16,4 +18,5 @@ Notable changes to `go-nexusmods`. The format follows
 - `ParseNXM`, `NXMDomain`, `ModURL`, `ParseModURL` and `NewerFile`.
 - Package `sso`: legacy SSO (`Legacy`) and OAuth 2 PKCE (`OAuth`) with a caller-supplied `TokenStore`.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/commits/main
+[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Rethunk-Tech/go-nexusmods/releases/tag/v0.1.0
