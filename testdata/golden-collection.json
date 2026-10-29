@@ -1,0 +1,1 @@
+{"Name":"Cozy Farm","Author":"Pat","Slug":"cozy-farm","Revision":4,"Files":[{"ModID":100,"FileID":11,"Optional":true}],"Instructions":"i","External":[{"Name":"Tool","Type":"browse","URL":"https://example.test","Version":"1","Author":"a","Optional":true}],"DownloadLink":"/v2/collections/1/revisions/4/download_link"}
