@@ -6,6 +6,8 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-30
+
 ### Added
 
 - `ParseArchiveName` reads the mod name, mod id, version, timestamp and extension out of a Nexus download's file name.
@@ -22,5 +24,6 @@ Notable changes to `go-nexusmods`. The format follows
 - `ParseNXM`, `NXMDomain`, `ModURL`, `ParseModURL` and `NewerFile`.
 - Package `sso`: legacy SSO (`Legacy`) and OAuth 2 PKCE (`OAuth`) with a caller-supplied `TokenStore`.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Rethunk-Tech/go-nexusmods/releases/tag/v0.1.0
