@@ -92,6 +92,14 @@ func TestEndorseAbstainAndTrackedList(t *testing.T) {
 	if err := c.Untrack(ctx, stardew, 541); err != nil || last.method != http.MethodDelete {
 		t.Fatalf("untrack = %v, %+v", err, last)
 	}
+	if _, err := c.TrackedMods(ctx); err != nil {
+		t.Fatal(err)
+	}
+	n = hits.Load()
+	c.ForgetTracked()
+	if _, err := c.TrackedMods(ctx); err != nil || hits.Load() != n+1 {
+		t.Fatalf("ForgetTracked should drop the cached list: hits %d -> %d, %v", n, hits.Load(), err)
+	}
 }
 
 func TestEndorseWithoutDownloadReturnsNexusMessage(t *testing.T) {
@@ -128,5 +136,17 @@ func TestTrackAlreadyTrackedIsOk(t *testing.T) {
 	c.BaseURL = srv.URL
 	if err := c.WithKey("k").Track(context.Background(), stardew, 541); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestErrorTextsNameTheirCause(t *testing.T) {
+	for err, want := range map[error]string{
+		&MessageError{Message: "already endorsed"}: "already endorsed",
+		&MessageError{Status: "418 teapot"}:        "nexus answered 418 teapot",
+		&RejectError{Reason: ReasonExpired}:        "nxm link refused: expired",
+	} {
+		if err.Error() != want {
+			t.Errorf("%q, want %q", err.Error(), want)
+		}
 	}
 }
