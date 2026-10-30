@@ -52,5 +52,6 @@ Windows-only behaviour runs; say here which tests depend on it.
 | `collection.go` | `Collection`, its decoder, `PremiumCollectionArchive` |
 | `nxm.go` | `ParseNXM`, `NXMLink`, `NXMDomain`, `RejectError` |
 | `url.go`, `version.go` | Mod-page URLs, `NewerFile` |
+| `filename.go` | `ParseArchiveName`, `ArchiveName` |
 | `sso/sso.go` | `Legacy`, the sign-in states and errors |
 | `sso/oauth.go` | `OAuth`, `Tokens`, `TokenStore`, `Fresh` |

@@ -53,6 +53,7 @@ func main() {
 | `PremiumDownloadLinks`, `PremiumCollectionArchive` | Ask with no key; a free account gets `ErrPremiumRequired`. |
 | Mod files | Never fetched or written by this package. |
 | `ParseNXM` | Accepts only `nxm://<domain>/mods/<id>/files/<id>?key=&expires=&user_id=` for the signed-in user, unexpired; every refusal is a `*RejectError` with a `Reason*`. |
+| `ParseArchiveName` | Reads `<name>-<mod id>-<version>-<timestamp>.<zip\|7z\|rar>` from a name or path (either separator); `Name` keeps its underscores, `Version` its `-` for `.`; a mod id of 0 or any other shape is not ok |
 | `Collection` | Latest revision when `revision` is 0; a missing one wraps `httpkit.ErrNotFound`; non-http(s) links are blanked. |
 | `ModsByDomain`, `FilesOf` | 50 ids per request; a failure returns what was found with the error. |
 | `sso.Legacy.Run` | Returns the API key; redials a dropped socket, not a refusal. |

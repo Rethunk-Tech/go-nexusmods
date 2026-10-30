@@ -6,6 +6,10 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `ParseArchiveName` reads the mod name, mod id, version, timestamp and extension out of a Nexus download's file name.
+
 ## [0.1.0] - 2026-10-29
 
 ### Added
