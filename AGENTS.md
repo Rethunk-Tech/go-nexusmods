@@ -13,6 +13,8 @@ Windows-only behaviour runs; say here which tests depend on it.
 
 ## Shape
 
+- `nxm://` parsing lives in the root package, because a subpackage named `nxm` would collide with a caller's own
+  `nxm` package; `sso` is its own package because it alone imports `coder/websocket`.
 - `roundTrip` is the single path for every API call. It refuses at `LimitFloor`, sets the identity headers, strips an
   `nxm` key from a transport `*url.Error` (the error text reaches logs), stops a 429 before reading the body, and
   records the budget. A new endpoint goes through `get`, `do` or `graphql`, never `http.Client` directly.
