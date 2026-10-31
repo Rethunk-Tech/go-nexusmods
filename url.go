@@ -26,7 +26,7 @@ func ParseModURL(text string) (domain string, modID int, ok bool) {
 	if len(parts) >= 1 && parts[0] == "games" {
 		parts = parts[1:]
 	}
-	if len(parts) != 3 || parts[0] == "" || parts[1] != "mods" {
+	if len(parts) != 3 || !validDomain(parts[0]) || parts[1] != "mods" {
 		return "", 0, false
 	}
 	id, err := strconv.Atoi(parts[2])
@@ -34,4 +34,17 @@ func ParseModURL(text string) (domain string, modID int, ok bool) {
 		return "", 0, false
 	}
 	return parts[0], id, true
+}
+
+// validDomain holds a game domain to the URL-safe set Nexus uses, so a percent-decoded byte cannot survive into ModURL.
+func validDomain(domain string) bool {
+	if domain == "" {
+		return false
+	}
+	for _, r := range domain {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
 }

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("https://neXusmods.Com/%00/mods/1")
