@@ -6,6 +6,8 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
 ### Added
 
 - `ChangelogError`, the error `Upload` returns when the file is up but its changelog was not added; `errors.As` tells it from a failed upload, and `Unwrap` gives the cause.
@@ -42,7 +44,8 @@ Notable changes to `go-nexusmods`. The format follows
 - `ParseNXM`, `NXMDomain`, `ModURL`, `ParseModURL` and `NewerFile`.
 - Package `sso`: legacy SSO (`Legacy`) and OAuth 2 PKCE (`OAuth`) with a caller-supplied `TokenStore`.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Rethunk-Tech/go-nexusmods/releases/tag/v0.1.0
