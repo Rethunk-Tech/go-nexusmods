@@ -1,8 +1,8 @@
 # AGENTS.md
 
 Package `nexusmods` is a client for the Nexus Mods API (v1 REST, v2 GraphQL), its `X-Rl-*` budget and `nxm://` links;
-`sso` signs a user in. Mod managers, update checkers and bots import it. It imports no consumer package and does no
-file I/O; wording a player reads, product settings and caches belong to the caller.
+`sso` signs a user in. Mod managers, update checkers and bots import it. It imports no consumer package and reads a file
+only to upload it (`Uploader`); wording a player reads, product settings and caches belong to the caller.
 
 ## Gate
 
@@ -13,6 +13,8 @@ Windows-only behaviour runs; say here which tests depend on it.
 
 ## Shape
 
+- `Uploader` sends its v3 API calls through `roundTrip` (credential, identity headers, redirect policy, rate-limit
+  accounting); storage requests use the client's `http.Client` directly and carry no credential.
 - `nxm://` parsing lives in the root package, because a subpackage named `nxm` would collide with a caller's own
   `nxm` package; `sso` is its own package because it alone imports `coder/websocket`.
 - `roundTrip` is the single path for every API call. It refuses at `LimitFloor`, sets the identity headers, strips an
