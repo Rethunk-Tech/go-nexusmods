@@ -6,6 +6,18 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `ChangelogError`, the error `Upload` returns when the file is up but its changelog was not added; `errors.As` tells it from a failed upload, and `Unwrap` gives the cause.
+
+### Changed
+
+- A multipart upload is refused before its first PUT unless Nexus's part count is exactly the size divided by the part size, rounded up.
+
+### Fixed
+
+- A storage request's transport error no longer quotes the presigned signature, and a 429 from storage is an `*httpkit.RateLimitError` like the API's.
+
 ## [0.3.0] - 2026-11-02
 
 ### Added

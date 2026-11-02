@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,6 +36,8 @@ type fakeNexus struct {
 	log   []string
 	bodys map[string]string
 	polls int
+	// failChangelog answers the changelog request with a 500.
+	failChangelog bool
 }
 
 func newFakeNexus(t *testing.T, parts, partSize int) *fakeNexus {
@@ -76,6 +79,8 @@ func newFakeNexus(t *testing.T, parts, partSize int) *fakeNexus {
 				state = "available"
 			}
 			_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","state":"%s"}}`, state)
+		case key == "POST /v3/mods/55/changelogs" && f.failChangelog:
+			w.WriteHeader(http.StatusInternalServerError)
 		case key == "POST /v3/mod-files/77/versions" || key == "POST /v3/mods/55/changelogs":
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"data":{}}`))
@@ -186,5 +191,69 @@ func TestStorageURLRefusesCleartextAndForeignHosts(t *testing.T) {
 	}
 	if _, err := storageURL("https://bucket.example/part", "https://api.nexusmods.com"); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestUploadRefusesPartCountsThatDoNotMatch(t *testing.T) {
+	for name, c := range map[string]struct{ parts, partSize int }{
+		"too many":      {4, 4},
+		"zero size":     {3, 0},
+		"overflow size": {3, 1 << 62},
+	} {
+		f := newFakeNexus(t, c.parts, c.partSize)
+		err := f.uploader(5).Upload(t.Context(), Release{Path: writePackage(t, "0123456789"), ModFileID: "77", Name: "n", Version: "1.0.0"})
+		if err == nil || slices.Contains(f.log, "PUT /s3/part1") {
+			t.Errorf("%s: err = %v, requests = %q", name, err, f.log)
+		}
+	}
+}
+
+func TestStorageFailuresAreSafeAndTyped(t *testing.T) {
+	var mode atomic.Value
+	mode.Store("")
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v3/uploads":
+			_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","presigned_url":"%s/s3/whole?sig=SECRET"}}`, srv.URL)
+		case "/s3/whole":
+			if mode.Load() == "429" {
+				w.Header().Set("Retry-After", "30")
+				w.WriteHeader(http.StatusTooManyRequests)
+				return
+			}
+			if h, ok := w.(http.Hijacker); ok {
+				if conn, _, err := h.Hijack(); err == nil {
+					_ = conn.Close()
+				}
+			}
+		}
+	}))
+	defer srv.Close()
+	up := func() error {
+		c := New("App", "9.9.9").WithKey("k")
+		c.HTTP, c.BaseURL = srv.Client(), srv.URL
+		return NewUploader(c).Upload(t.Context(), Release{Path: writePackage(t, "x"), ModFileID: "1", Name: "n", Version: "1.0.0"})
+	}
+	if err := up(); err == nil || strings.Contains(err.Error(), "SECRET") {
+		t.Errorf("transport error = %v", err)
+	}
+	mode.Store("429")
+	rl, ok := errors.AsType[*httpkit.RateLimitError](up())
+	if !ok || rl.Reset.IsZero() {
+		t.Errorf("429 = %v, %v", rl, ok)
+	}
+}
+
+func TestUploadChangelogFailureIsTyped(t *testing.T) {
+	f := newFakeNexus(t, 0, 0)
+	f.failChangelog = true
+	err := f.uploader(0).Upload(t.Context(), Release{Path: writePackage(t, "x"), ModFileID: "77", Name: "n", Version: "1.0.0", ModID: "55", Changelog: "c"})
+	ce, ok := errors.AsType[*ChangelogError](err)
+	if !ok || !strings.HasPrefix(err.Error(), "the file is up, but its changelog was not added: ") || errors.Unwrap(ce) == nil {
+		t.Errorf("err = %v", err)
+	}
+	if _, ok := errors.AsType[*httpkit.StatusError](err); !ok {
+		t.Errorf("cause lost: %v", err)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Rethunk-Tech/go-httpkit"
 	"github.com/Rethunk-Tech/go-safefs"
 )
 
@@ -97,10 +98,18 @@ func (u *Uploader) send(ctx context.Context, method, rawURL, contentType string,
 	req.ContentLength = size
 	req.Header.Set("Content-Type", contentType)
 	res, err := cmp.Or(u.c.HTTP, http.DefaultClient).Do(req)
+	if ue, ok := errors.AsType[*url.Error](err); ok {
+		// A presigned address carries its signature in the query; the error quotes the URL into logs.
+		ue.URL, _, _ = strings.Cut(ue.URL, "?")
+	}
 	if err != nil {
 		return "", err
 	}
 	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode == http.StatusTooManyRequests {
+		reset, _ := httpkit.RetryAfter(res.Header.Get("Retry-After"))
+		return "", rateLimitError(reset)
+	}
 	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, maxBody))
 	if res.StatusCode >= http.StatusBadRequest {
 		return "", statusError(res.StatusCode, res.Status)
@@ -150,8 +159,12 @@ func (u *Uploader) store(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 	d := session.Data
-	if d.ID == "" || d.CompleteURL == "" || d.PartSize <= 0 || len(d.PartURLs) == 0 || len(d.PartURLs) > maxUploadParts ||
-		int64(len(d.PartURLs))*d.PartSize < size {
+	// Compared as a quotient so a huge part size cannot overflow a product.
+	need := size / max(d.PartSize, 1)
+	if size%max(d.PartSize, 1) != 0 {
+		need++
+	}
+	if d.ID == "" || d.CompleteURL == "" || d.PartSize <= 0 || len(d.PartURLs) > maxUploadParts || int64(len(d.PartURLs)) != need {
 		return "", errors.New("nexus: asked for parts that do not cover the file")
 	}
 	var done strings.Builder
@@ -201,6 +214,16 @@ func (u *Uploader) wait(ctx context.Context, id string) error {
 	return ErrUploadPending
 }
 
+// ChangelogError is Upload's failure to add the changelog after the file was uploaded and versioned: the file is up,
+// and only the changelog needs retrying.
+type ChangelogError struct{ Err error }
+
+func (e *ChangelogError) Error() string {
+	return "the file is up, but its changelog was not added: " + e.Err.Error()
+}
+
+func (e *ChangelogError) Unwrap() error { return e.Err }
+
 // Upload sends r.Path as the next version of r.ModFileID and waits for Nexus to process it. When r.ModID and
 // r.Changelog are set it then adds the changelog; if that last step fails the file is already up, and the error says
 // so.
@@ -222,7 +245,7 @@ func (u *Uploader) Upload(ctx context.Context, r Release) error {
 		return err
 	}
 	if err := u.call(ctx, http.MethodPost, "/mods/"+url.PathEscape(r.ModID)+"/changelogs", map[string]any{"version": r.Version, "changelog": r.Changelog}, nil); err != nil {
-		return fmt.Errorf("the file is up, but its changelog was not added: %w", err)
+		return &ChangelogError{Err: err}
 	}
 	return nil
 }
