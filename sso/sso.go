@@ -92,8 +92,7 @@ func (l Legacy) Run(ctx context.Context) (string, error) {
 		if runCtx.Err() != nil {
 			return "", ErrTimeout
 		}
-		var refused refusal
-		if errors.As(err, &refused) || attempt >= maxReconnects {
+		if _, refused := errors.AsType[refusal](err); refused || attempt >= maxReconnects {
 			return "", err
 		}
 		select {

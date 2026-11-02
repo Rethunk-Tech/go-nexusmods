@@ -153,8 +153,7 @@ func (c *Client) invalidateTracked() {
 func (c *Client) setTracked(ctx context.Context, t Title, method string, modID int) error {
 	body := trackBody{DomainName: t.Domain, ModID: modID}
 	if err := c.do(ctx, method, "/v1/user/tracked_mods.json", body, nil); err != nil {
-		var msg *MessageError
-		if method == http.MethodPost && errors.As(err, &msg) && msg.Code == http.StatusUnprocessableEntity {
+		if msg, ok := errors.AsType[*MessageError](err); method == http.MethodPost && ok && msg.Code == http.StatusUnprocessableEntity {
 			c.invalidateTracked()
 			return nil
 		}
