@@ -1,7 +1,6 @@
 package nexusmods
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,7 +26,7 @@ func TestPremiumCollectionArchiveGivesUpOnAStalledMirror(t *testing.T) {
 	c.BaseURL, c.HTTP = srv.URL, srv.Client()
 	c = c.WithKey("k")
 	start := time.Now()
-	if _, err := c.PremiumCollectionArchive(context.Background(), "/v2/collections/x/revisions/1/download_link"); err == nil {
+	if _, err := c.PremiumCollectionArchive(t.Context(), "/v2/collections/x/revisions/1/download_link"); err == nil {
 		t.Fatal("stalled mirror succeeded")
 	}
 	if time.Since(start) > 5*time.Second {
@@ -55,7 +54,7 @@ func TestPremiumCollectionArchiveAllowsASlowSteadyMirror(t *testing.T) {
 	c := New("TestApp", "9.9")
 	c.BaseURL, c.HTTP = srv.URL, srv.Client()
 	c = c.WithKey("k")
-	b, err := c.PremiumCollectionArchive(context.Background(), "/v2/collections/x/revisions/1/download_link")
+	b, err := c.PremiumCollectionArchive(t.Context(), "/v2/collections/x/revisions/1/download_link")
 	if err != nil || len(b) != 6 {
 		t.Fatalf("got %d bytes, err %v", len(b), err)
 	}

@@ -1,7 +1,6 @@
 package nexusmods
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -45,7 +44,7 @@ func TestEndorseAbstainAndTrackedList(t *testing.T) {
 	c := New("TestApp", "9.9")
 	c.BaseURL, c.Now = srv.URL, func() time.Time { return now }
 	c = c.WithKey("k")
-	ctx := context.Background()
+	ctx := t.Context()
 
 	got, err := c.Endorse(ctx, stardew, 541, "1.55.0")
 	if err != nil || got != EndorseEndorsed || last.method != http.MethodPost ||
@@ -115,7 +114,7 @@ func TestEndorseWithoutDownloadReturnsNexusMessage(t *testing.T) {
 	c := New("TestApp", "9.9")
 	c.BaseURL = srv.URL
 	c = c.WithKey("k")
-	_, err := c.Endorse(context.Background(), stardew, 541, "1.0.0")
+	_, err := c.Endorse(t.Context(), stardew, 541, "1.0.0")
 	var msg *MessageError
 	if !errors.As(err, &msg) || msg.Message != "You must download this mod before you can endorse it." {
 		t.Fatalf("endorse = %v", err)
@@ -134,7 +133,7 @@ func TestTrackAlreadyTrackedIsOk(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := New("TestApp", "9.9")
 	c.BaseURL = srv.URL
-	if err := c.WithKey("k").Track(context.Background(), stardew, 541); err != nil {
+	if err := c.WithKey("k").Track(t.Context(), stardew, 541); err != nil {
 		t.Fatal(err)
 	}
 }

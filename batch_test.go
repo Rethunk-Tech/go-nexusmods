@@ -1,7 +1,6 @@
 package nexusmods
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,7 +54,7 @@ func TestModsByDomainCostsOneRequestPerBatch(t *testing.T) {
 	for i := range ids {
 		ids[i] = i + 1
 	}
-	got, err := c.ModsByDomain(context.Background(), "lethalcompany", ids)
+	got, err := c.ModsByDomain(t.Context(), "lethalcompany", ids)
 	if err != nil || len(got) != 800 {
 		t.Fatalf("got %d mods, %v", len(got), err)
 	}
@@ -79,7 +78,7 @@ func TestModsByDomainStopsAtARateLimitWithoutRetrying(t *testing.T) {
 	for i := range ids {
 		ids[i] = i + 1
 	}
-	got, err := c.ModsByDomain(context.Background(), "lethalcompany", ids)
+	got, err := c.ModsByDomain(t.Context(), "lethalcompany", ids)
 	var limit *httpkit.RateLimitError
 	// Requests already in flight finish; none starts after the refusal is seen.
 	n := int(requests.Load())
@@ -101,7 +100,7 @@ func TestModsByDomainReadsRequirements(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := New("TestApp", "test").WithKey("k")
 	c.BaseURL = srv.URL
-	got, err := c.ModsByDomain(context.Background(), "stardewvalley", []int{3753})
+	got, err := c.ModsByDomain(t.Context(), "stardewvalley", []int{3753})
 	if err != nil {
 		t.Fatal(err)
 	}

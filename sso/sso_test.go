@@ -57,7 +57,7 @@ func TestLegacyHappyPathAndReconnect(t *testing.T) {
 		OpenBrowser: func(u string) error { opened = append(opened, u); close(approve); return nil },
 		OnState:     func(s State) { states = append(states, s) },
 	}
-	key, err := l.Run(context.Background())
+	key, err := l.Run(t.Context())
 	if err != nil || key != "KEY" {
 		t.Fatalf("key %q err %v", key, err)
 	}
@@ -97,11 +97,11 @@ func TestLegacyTimeoutCancelRefusal(t *testing.T) {
 
 	l := base
 	l.SocketURL, l.Timeout = wsURL(holdOpen(t, ok)), 100*time.Millisecond
-	if _, err := l.Run(context.Background()); !errors.Is(err, ErrTimeout) {
+	if _, err := l.Run(t.Context()); !errors.Is(err, ErrTimeout) {
 		t.Fatalf("timeout: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	l = base
 	l.SocketURL = wsURL(holdOpen(t, ok))
 	l.OnState = func(s State) {
@@ -115,11 +115,11 @@ func TestLegacyTimeoutCancelRefusal(t *testing.T) {
 
 	l = base
 	l.SocketURL = wsURL(holdOpen(t, map[string]any{"success": false, "error": "bad slug"}))
-	if _, err := l.Run(context.Background()); err == nil || !strings.Contains(err.Error(), "bad slug") {
+	if _, err := l.Run(t.Context()); err == nil || !strings.Contains(err.Error(), "bad slug") {
 		t.Fatalf("refusal: %v", err)
 	}
 
-	if _, err := (Legacy{}).Run(context.Background()); !errors.Is(err, ErrNotConfigured) {
+	if _, err := (Legacy{}).Run(t.Context()); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("no slug: %v", err)
 	}
 }

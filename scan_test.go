@@ -1,7 +1,6 @@
 package nexusmods
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -24,11 +23,11 @@ func TestScanStatusesCachesGraphQLResponse(t *testing.T) {
 
 	client := New("TestApp", "test")
 	client.BaseURL = server.URL
-	first, err := client.ScanStatuses(context.Background(), stardew, 30597)
+	first, err := client.ScanStatuses(t.Context(), stardew, 30597)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := client.ScanStatuses(context.Background(), stardew, 30597)
+	second, err := client.ScanStatuses(t.Context(), stardew, 30597)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,12 +44,12 @@ func TestScanStatusesTellARefusedKeyFromASpentQuota(t *testing.T) {
 	defer server.Close()
 	client := New("TestApp", "test")
 	client.BaseURL = server.URL
-	if _, err := client.ScanStatuses(context.Background(), stardew, 1); !errors.Is(err, ErrUnauthorized) {
+	if _, err := client.ScanStatuses(t.Context(), stardew, 1); !errors.Is(err, ErrUnauthorized) {
 		t.Fatalf("a refused key: %v", err)
 	}
 	code = http.StatusTooManyRequests
 	var limited *httpkit.RateLimitError
-	if _, err := client.ScanStatuses(context.Background(), stardew, 2); !errors.As(err, &limited) {
+	if _, err := client.ScanStatuses(t.Context(), stardew, 2); !errors.As(err, &limited) {
 		t.Fatalf("a spent quota: %v", err)
 	}
 }

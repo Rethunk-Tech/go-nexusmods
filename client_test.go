@@ -1,7 +1,6 @@
 package nexusmods
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -71,7 +70,7 @@ func serve(t *testing.T, status *atomic.Int32, hourly string, hits *atomic.Int32
 func TestReplays(t *testing.T) {
 	var status, hits atomic.Int32
 	c := serve(t, &status, "1900", &hits)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	u, err := c.Validate(ctx)
 	if err != nil || u != (User{ID: 1234567, Name: "TestAccount"}) {
@@ -96,7 +95,7 @@ func TestReplays(t *testing.T) {
 func TestPageChangelogsCategories(t *testing.T) {
 	var status, hits atomic.Int32
 	c := serve(t, &status, "1900", &hits)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	p, err := c.Page(ctx, stardew, 541)
 	if err != nil || p.ModID != 541 || p.Version != "1.55.0" || p.UploadedBy != "Pathoschild" || p.CategoryID != 10 ||
@@ -129,7 +128,7 @@ func TestPageChangelogsCategories(t *testing.T) {
 func TestErrors(t *testing.T) {
 	var status, hits atomic.Int32
 	c := serve(t, &status, "1900", &hits)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	status.Store(http.StatusUnauthorized)
 	if _, err := c.Validate(ctx); !errors.Is(err, ErrUnauthorized) {
@@ -153,19 +152,19 @@ func TestErrors(t *testing.T) {
 func TestRefusesAtFloor(t *testing.T) {
 	var status, hits atomic.Int32
 	c := serve(t, &status, "3", &hits)
-	if _, err := c.Validate(context.Background()); err != nil {
+	if _, err := c.Validate(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	before := hits.Load()
 	var re *httpkit.RateLimitError
-	if _, err := c.Files(context.Background(), stardew, 541); !errors.As(err, &re) || !re.Reset.Equal(time.Date(2026, 9, 30, 13, 0, 0, 0, time.UTC)) {
+	if _, err := c.Files(t.Context(), stardew, 541); !errors.As(err, &re) || !re.Reset.Equal(time.Date(2026, 9, 30, 13, 0, 0, 0, time.UTC)) {
 		t.Fatalf("at floor = %v", err)
 	}
 	if hits.Load() != before {
 		t.Fatal("a request was sent at the floor")
 	}
 	c.Now = func() time.Time { return t0.Add(2 * time.Hour) }
-	if _, err := c.Files(context.Background(), stardew, 541); err != nil {
+	if _, err := c.Files(t.Context(), stardew, 541); err != nil {
 		t.Fatalf("after reset = %v", err)
 	}
 }
@@ -218,7 +217,7 @@ func TestTransportErrorDropsTheLinkKey(t *testing.T) {
 	var status, hits atomic.Int32
 	c := serve(t, &status, "1900", &hits)
 	c.BaseURL = "http://127.0.0.1:1"
-	_, err := c.DownloadLinks(context.Background(), stardew, NXMLink{ModID: 541, FileID: 3001, Key: "SECRETKEY", Expires: 1234567})
+	_, err := c.DownloadLinks(t.Context(), stardew, NXMLink{ModID: 541, FileID: 3001, Key: "SECRETKEY", Expires: 1234567})
 	if err == nil || strings.Contains(err.Error(), "SECRETKEY") || strings.Contains(err.Error(), "1234567") {
 		t.Fatalf("error = %v", err)
 	}
@@ -235,7 +234,7 @@ func TestRedirectsStayOnTheAPIOrigin(t *testing.T) {
 	t.Cleanup(api.Close)
 	c := New("TestApp", "9.9")
 	c.BaseURL = api.URL
-	if _, err := c.WithKey("k").Validate(context.Background()); err == nil || !strings.Contains(err.Error(), "refusing a redirect") || elsewhere.Load() != 0 {
+	if _, err := c.WithKey("k").Validate(t.Context()); err == nil || !strings.Contains(err.Error(), "refusing a redirect") || elsewhere.Load() != 0 {
 		t.Fatalf("err = %v, requests elsewhere %d", err, elsewhere.Load())
 	}
 }
@@ -250,7 +249,7 @@ func TestRetryAfterWhenNoResetHeaders(t *testing.T) {
 	c.BaseURL = srv.URL
 	c = c.WithKey("k")
 	var re *httpkit.RateLimitError
-	if _, err := c.Validate(context.Background()); !errors.As(err, &re) || time.Until(re.Reset) < time.Minute {
+	if _, err := c.Validate(t.Context()); !errors.As(err, &re) || time.Until(re.Reset) < time.Minute {
 		t.Fatalf("Retry-After ignored: %v", err)
 	}
 	if got := (&httpkit.RateLimitError{}).Error(); strings.Contains(got, "0001") {

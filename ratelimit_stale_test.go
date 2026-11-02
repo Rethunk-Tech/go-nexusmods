@@ -1,7 +1,6 @@
 package nexusmods
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -31,10 +30,10 @@ func TestRetryAfterBeatsAStaleBudgetReset(t *testing.T) {
 	c := New("TestApp", "9.9")
 	c.BaseURL, c.Now = srv.URL, func() time.Time { return now }
 	c = c.WithKey("k")
-	if _, err := c.Validate(context.Background()); err != nil {
+	if _, err := c.Validate(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	_, err := c.Validate(context.Background())
+	_, err := c.Validate(t.Context())
 	var re *httpkit.RateLimitError
 	if !errors.As(err, &re) {
 		t.Fatalf("not a rate limit: %v", err)

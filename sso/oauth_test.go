@@ -2,7 +2,6 @@ package sso
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -73,21 +72,21 @@ func TestOAuthPKCEAndRefresh(t *testing.T) {
 			t.Errorf("authorize query %v", q)
 		}
 		go func() {
-			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, q.Get("redirect_uri")+"?code=CODE&state="+q.Get("state"), nil)
+			req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, q.Get("redirect_uri")+"?code=CODE&state="+q.Get("state"), nil)
 			if resp, err := http.DefaultClient.Do(req); err == nil {
 				_ = resp.Body.Close()
 			}
 		}()
 		return nil
 	}
-	tok, err := o.Authorize(context.Background())
+	tok, err := o.Authorize(t.Context())
 	if err != nil || tok.Access != "A1" || tok.Refresh != "R1" || !tok.Expires.Equal(now.Add(30*time.Second)) {
 		t.Fatalf("tokens %+v err %v", tok, err)
 	}
 	if err := store.Save(tok); err != nil {
 		t.Fatal(err)
 	}
-	got, err := o.Fresh(context.Background())
+	got, err := o.Fresh(t.Context())
 	if err != nil || got.Access != "A2" || got.Refresh != "R1" {
 		t.Fatalf("refreshed %+v err %v", got, err)
 	}
@@ -101,7 +100,7 @@ func TestOAuthPKCEAndRefresh(t *testing.T) {
 
 func TestOAuthTimeoutAndDeniedCallback(t *testing.T) {
 	o := OAuth{ClientID: "c", Timeout: 50 * time.Millisecond, OpenBrowser: func(string) error { return nil }, Addr: "127.0.0.1:0", FailText: "NOPE", DoneText: "YES"}
-	if _, err := o.Authorize(context.Background()); !errors.Is(err, ErrTimeout) {
+	if _, err := o.Authorize(t.Context()); !errors.Is(err, ErrTimeout) {
 		t.Fatalf("timeout: %v", err)
 	}
 	o.Timeout = time.Second
@@ -109,7 +108,7 @@ func TestOAuthTimeoutAndDeniedCallback(t *testing.T) {
 	o.OpenBrowser = func(raw string) error {
 		u, _ := url.Parse(raw)
 		go func() {
-			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, u.Query().Get("redirect_uri")+"?error=access_denied&state="+u.Query().Get("state"), nil)
+			req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, u.Query().Get("redirect_uri")+"?error=access_denied&state="+u.Query().Get("state"), nil)
 			if resp, err := http.DefaultClient.Do(req); err == nil {
 				b, _ := io.ReadAll(resp.Body)
 				_ = resp.Body.Close()
@@ -118,7 +117,7 @@ func TestOAuthTimeoutAndDeniedCallback(t *testing.T) {
 		}()
 		return nil
 	}
-	if _, err := o.Authorize(context.Background()); err == nil {
+	if _, err := o.Authorize(t.Context()); err == nil {
 		t.Fatal("denied callback succeeded")
 	}
 	if p := <-page; p != "NOPE" {
@@ -142,14 +141,14 @@ func TestExchangeRefusesAnOversizedTokenBody(t *testing.T) {
 }
 
 func TestBusyPortFailsWithoutFallingBack(t *testing.T) {
-	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Skipf("no loopback listener: %v", err)
 	}
 	defer func() { _ = ln.Close() }()
 	opened := false
 	o := OAuth{ClientID: "c", Addr: ln.Addr().String(), OpenBrowser: func(string) error { opened = true; return nil }}
-	_, err = o.Authorize(context.Background())
+	_, err = o.Authorize(t.Context())
 	if !errors.Is(err, ErrPortBusy) || !strings.Contains(err.Error(), ln.Addr().String()) {
 		t.Fatalf("error %v", err)
 	}
@@ -161,10 +160,10 @@ func TestBusyPortFailsWithoutFallingBack(t *testing.T) {
 func TestAuthorizeNeedsACallbackAddress(t *testing.T) {
 	opened := false
 	o := OAuth{ClientID: "c", OpenBrowser: func(string) error { opened = true; return nil }}
-	if _, err := o.Authorize(context.Background()); err == nil || opened {
+	if _, err := o.Authorize(t.Context()); err == nil || opened {
 		t.Fatalf("no address: err %v, browser opened %t", err, opened)
 	}
-	if _, err := (OAuth{Addr: "127.0.0.1:0"}).Authorize(context.Background()); !errors.Is(err, ErrNotConfigured) {
+	if _, err := (OAuth{Addr: "127.0.0.1:0"}).Authorize(t.Context()); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("no client id: %v", err)
 	}
 }
@@ -174,7 +173,7 @@ func TestTheDefaultPagesAreNeutral(t *testing.T) {
 	o := OAuth{ClientID: "c", Timeout: time.Second, Addr: "127.0.0.1:0", OpenBrowser: func(raw string) error {
 		u, _ := url.Parse(raw)
 		go func() {
-			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, u.Query().Get("redirect_uri")+"?error=access_denied&state="+u.Query().Get("state"), nil)
+			req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, u.Query().Get("redirect_uri")+"?error=access_denied&state="+u.Query().Get("state"), nil)
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				page <- "request failed: " + err.Error()
@@ -190,7 +189,7 @@ func TestTheDefaultPagesAreNeutral(t *testing.T) {
 		}()
 		return nil
 	}}
-	_, _ = o.Authorize(context.Background())
+	_, _ = o.Authorize(t.Context())
 	if p := <-page; p != defaultFailText {
 		t.Fatalf("page = %q", p)
 	}
@@ -198,7 +197,7 @@ func TestTheDefaultPagesAreNeutral(t *testing.T) {
 
 func TestFreshWithoutAGrantReportsNoTokens(t *testing.T) {
 	o := OAuth{ClientID: "c", Store: &memStore{}}
-	if _, err := o.Fresh(context.Background()); !errors.Is(err, ErrNoTokens) {
+	if _, err := o.Fresh(t.Context()); !errors.Is(err, ErrNoTokens) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -214,7 +213,7 @@ func TestFreshMapsARefusedRefreshToSignedOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	o := OAuth{ClientID: "cid", AuthBase: srv.URL, Now: func() time.Time { return now }, Store: store}
-	if _, err := o.Fresh(context.Background()); !errors.Is(err, ErrRevoked) {
+	if _, err := o.Fresh(t.Context()); !errors.Is(err, ErrRevoked) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -229,7 +228,7 @@ func TestAStoredGrantWithNoAccessTokenRefreshes(t *testing.T) {
 	}))
 	defer srv.Close()
 	o := OAuth{ClientID: "cid", AuthBase: srv.URL, Now: func() time.Time { return now }, Store: store}
-	got, err := o.Fresh(context.Background())
+	got, err := o.Fresh(t.Context())
 	if err != nil || got.Access != "N" || got.Refresh != "R2" || calls != 1 || store.t.Access != "N" {
 		t.Fatalf("a stored refresh token with no access token must refresh: %+v, %v, %d calls", got, err, calls)
 	}
@@ -237,7 +236,7 @@ func TestAStoredGrantWithNoAccessTokenRefreshes(t *testing.T) {
 
 func TestListenFailureThatIsNotABusyPortKeepsItsCause(t *testing.T) {
 	o := OAuth{ClientID: "c", Addr: "256.0.0.1:0", OpenBrowser: func(string) error { return nil }}
-	_, err := o.Authorize(context.Background())
+	_, err := o.Authorize(t.Context())
 	if err == nil || errors.Is(err, ErrPortBusy) || !strings.Contains(err.Error(), "256.0.0.1:0") {
 		t.Fatalf("error %v", err)
 	}

@@ -1,7 +1,6 @@
 package nexusmods
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -28,7 +27,7 @@ func TestFilesOfAsksForEveryModInOneRequest(t *testing.T) {
 	defer srv.Close()
 	c := New("TestApp", "test").WithKey("k")
 	c.BaseURL = srv.URL
-	got, err := c.FilesOf(context.Background(), stardew, []int{41150, 28261})
+	got, err := c.FilesOf(t.Context(), stardew, []int{41150, 28261})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +50,7 @@ func TestFilesOfStopsAtARateLimitWithoutRetrying(t *testing.T) {
 		ids[i] = i + 1
 	}
 	var limit *httpkit.RateLimitError
-	if _, err := c.FilesOf(context.Background(), stardew, ids); !errors.As(err, &limit) || calls != 1 {
+	if _, err := c.FilesOf(t.Context(), stardew, ids); !errors.As(err, &limit) || calls != 1 {
 		t.Fatalf("calls %d, err %v", calls, err)
 	}
 }
