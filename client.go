@@ -39,8 +39,8 @@ const (
 )
 
 var (
-	// ErrUnauthorized means the API key was rejected.
-	ErrUnauthorized = errors.New("nexus rejected the API key")
+	// ErrUnauthorized means the key or access token was rejected.
+	ErrUnauthorized = errors.New("nexus rejected the sign-in")
 	// ErrPremiumRequired means a download link needs the key and expires from an nxm:// link, or a premium account.
 	ErrPremiumRequired = errors.New("nexus requires a premium account or an nxm:// link for this download")
 )
