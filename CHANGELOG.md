@@ -6,6 +6,16 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-04
+
+### Added
+
+- `sso.OAuth.Identify` names the account behind an access token, from Nexus's `/oauth/userinfo`. `Client.Validate` answers personal API keys only: `/v1/users/validate.json` refuses an access token.
+
+### Changed
+
+- `ErrUnauthorized` reads "nexus rejected the sign-in", since it also covers a refused access token.
+
 ## [0.4.0] - 2026-11-02
 
 ### Added
