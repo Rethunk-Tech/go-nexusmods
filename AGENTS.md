@@ -49,6 +49,7 @@ Windows-only behaviour runs; say here which tests depend on it.
 | `client.go` | `Client`, the budget, `roundTrip`, `get`, `graphql`, `Validate`, `Files`, `ScanStatuses`, download links |
 | `auth.go` | `WithKey`, `WithBearer`, `TokenSource` |
 | `account.go` | Endorse, abstain, tracked mods and their memo |
+| `search.go` | `Search`, the GraphQL mod search |
 | `mod.go` | `Page`, `Changelogs`, `Categories` |
 | `batch.go`, `filesbatch.go` | Batched GraphQL lookups of mods and files |
 | `collection.go` | `Collection`, its decoder, `PremiumCollectionArchive` |

@@ -6,6 +6,10 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Client.Search` lists a page of a game's mods through the v2 GraphQL API (`SearchQuery`: name text, sort, any-of and excluded categories, count and offset; `SearchResult`, `SearchMod`).
+
 ## [0.5.0] - 2026-11-04
 
 ### Added
