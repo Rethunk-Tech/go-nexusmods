@@ -6,6 +6,12 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
+### Added
+
+- `Client.Search` lists a page of a game's mods through the v2 GraphQL API (`SearchQuery`: name text, sort, any-of and excluded categories, count and offset; `SearchResult`, `SearchMod`).
+
 ### Fixed
 
 - The OAuth token exchange no longer follows redirects, so a 307 cannot re-send the refresh token to another origin.
@@ -15,10 +21,6 @@ Notable changes to `go-nexusmods`. The format follows
 - `sso.OAuth.LockFile` makes `Fresh` hold an exclusive lock file across load, refresh and save, so two processes sharing one store cannot spend the same rotated refresh token.
 - `sso.OAuth` and `sso.Legacy` refuse an `http` or `ws` endpoint override unless it is loopback.
 - `ParseNXM` refuses a repeated `expires` or `user_id`.
-
-### Added
-
-- `Client.Search` lists a page of a game's mods through the v2 GraphQL API (`SearchQuery`: name text, sort, any-of and excluded categories, count and offset; `SearchResult`, `SearchMod`).
 
 ## [0.5.0] - 2026-11-04
 
@@ -68,7 +70,8 @@ Notable changes to `go-nexusmods`. The format follows
 - `ParseNXM`, `NXMDomain`, `ModURL`, `ParseModURL` and `NewerFile`.
 - Package `sso`: legacy SSO (`Legacy`) and OAuth 2 PKCE (`OAuth`) with a caller-supplied `TokenStore`.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.5.0...v0.6.0
 [0.4.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.1.0...v0.2.0
