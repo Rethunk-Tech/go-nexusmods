@@ -15,6 +15,7 @@ require (
 	github.com/Rethunk-Tech/go-safefs v0.7.1
 	github.com/Rethunk-Tech/go-semverish v0.2.0
 	github.com/coder/websocket v1.8.15
+	github.com/gofrs/flock v0.13.1
 )
 
 require (
@@ -94,7 +95,6 @@ require (
 	github.com/go-xmlfmt/xmlfmt v1.1.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godoc-lint/godoc-lint v0.11.4 // indirect
-	github.com/gofrs/flock v0.13.1 // indirect
 	github.com/golangci/asciicheck v0.5.0 // indirect
 	github.com/golangci/canonicalheader v0.0.0-20260928145534-e18e5c5a078f // indirect
 	github.com/golangci/dupl v0.0.0-20260401084720-c99c5cf5c202 // indirect

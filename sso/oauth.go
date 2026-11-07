@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Rethunk-Tech/go-httpkit"
+	"github.com/gofrs/flock"
 )
 
 const (
@@ -84,6 +85,9 @@ type OAuth struct {
 	Now         func() time.Time
 	// Store is required by Fresh.
 	Store TokenStore
+	// LockFile, when set, is an exclusive lock file Fresh holds across load, refresh and save, so two processes
+	// sharing one Store cannot spend the same rotated refresh token. Empty serialises callers of this process only.
+	LockFile string
 	// DoneText is what the browser tab shows after a granted sign-in; empty means a neutral sentence.
 	DoneText string
 	// FailText is what it shows after a denied or failed one; empty means a neutral sentence.
@@ -265,6 +269,11 @@ func (o OAuth) Fresh(ctx context.Context) (Tokens, error) {
 	}
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
+	unlock, err := o.lockFile(ctx)
+	if err != nil {
+		return Tokens{}, err
+	}
+	defer unlock()
 	if t, err = o.Store.Load(); err != nil {
 		return Tokens{}, err
 	}
@@ -281,6 +290,21 @@ func (o OAuth) Fresh(ctx context.Context) (Tokens, error) {
 	}
 	next.Refresh = cmp.Or(next.Refresh, t.Refresh)
 	return next, o.save(t.Refresh, next)
+}
+
+// lockPoll is how often a Fresh waiting on another process's lock tries again.
+const lockPoll = 50 * time.Millisecond
+
+// lockFile takes the cross-process lock, or does nothing when LockFile is unset.
+func (o OAuth) lockFile(ctx context.Context) (func(), error) {
+	if o.LockFile == "" {
+		return func() {}, nil
+	}
+	l := flock.New(o.LockFile)
+	if _, err := l.TryLockContext(ctx, lockPoll); err != nil {
+		return nil, fmt.Errorf("nexus sign-in: lock %s: %w", o.LockFile, err)
+	}
+	return func() { _ = l.Unlock() }, nil
 }
 
 // unsaved is the last refresh whose Save failed: Nexus has already spent the stored refresh token, so the new grant

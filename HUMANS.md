@@ -57,7 +57,7 @@ func main() {
 | `Collection` | Latest revision when `revision` is 0; a missing one wraps `httpkit.ErrNotFound`; non-http(s) links are blanked. |
 | `ModsByDomain`, `FilesOf` | 50 ids per request; a failure returns what was found with the error. |
 | `sso.Legacy.Run` | Returns the API key; redials a dropped socket, not a refusal. |
-| `sso.OAuth` | `Addr` is required; `Authorize` fails before opening the browser if it cannot listen; `Fresh` refreshes inside a minute of expiry through your `TokenStore`; a refused refresh is `ErrRevoked`. |
+| `sso.OAuth` | `Addr` is required; `Authorize` fails before opening the browser if it cannot listen; `Fresh` refreshes inside a minute of expiry through your `TokenStore`; a refused refresh is `ErrRevoked`. Set `LockFile` when more than one process shares the store, or two may spend one rotated refresh token. |
 
 ## Requirements
 

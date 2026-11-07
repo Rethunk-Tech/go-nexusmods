@@ -36,6 +36,7 @@ Windows-only behaviour runs; say here which tests depend on it.
 - `Collection`, `Page`, `File`, `Requirement`, `TrackedMod`, `Window`, `Limits` and `NXMLink` are stored or printed
   by callers: their JSON tags (`Collection` has none) are a format, pinned by `TestJSONFormsAreStable`.
 - Every `limiter` callback runs unlocked (`TestSourceDoesNotInvokeCallbacksUnderMutex`).
+- `OAuth.LockFile` adds an flock across processes around load, refresh and save; `refreshMu` covers one process.
 - `sso.refreshMu` is package-level because Nexus rotates the refresh token on use and callers build an `OAuth` value
   per call. `Fresh` treats an empty `Access` as expired, so a store may drop the access token to fit a size limit.
 - `OAuth.Addr` has no default: Nexus registers a fixed callback, and a random port would fail only at Nexus.
