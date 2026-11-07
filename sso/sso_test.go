@@ -123,3 +123,10 @@ func TestLegacyTimeoutCancelRefusal(t *testing.T) {
 		t.Fatalf("no slug: %v", err)
 	}
 }
+
+func TestLegacyRefusesACleartextSocket(t *testing.T) {
+	l := Legacy{Slug: "testapp", SocketURL: "ws://sso.nexusmods.com"}
+	if _, err := l.Run(t.Context()); err == nil || errors.Is(err, ErrTimeout) {
+		t.Fatalf("err = %v", err)
+	}
+}

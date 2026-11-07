@@ -57,6 +57,11 @@ func ParseNXM(raw string, userID int, now time.Time, gameOf GameOf) (NXMLink, er
 	if err != nil || len(q) != 3 {
 		return NXMLink{}, reject(ReasonForm)
 	}
+	for _, values := range q {
+		if len(values) != 1 {
+			return NXMLink{}, reject(ReasonForm)
+		}
+	}
 	l := NXMLink{Game: gameID}
 	if l.ModID, err = number(parts[1]); err != nil {
 		return NXMLink{}, err
@@ -72,7 +77,7 @@ func ParseNXM(raw string, userID int, now time.Time, gameOf GameOf) (NXMLink, er
 		return NXMLink{}, err
 	}
 	l.Expires, l.Key = int64(expires), q.Get("key")
-	if l.Key == "" || len(q["key"]) != 1 {
+	if l.Key == "" {
 		return NXMLink{}, reject(ReasonForm)
 	}
 	if userID == 0 {

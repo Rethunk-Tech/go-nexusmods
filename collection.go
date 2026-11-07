@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,7 +29,7 @@ var mirrorTimeout = 2 * time.Minute
 // Nexus allows only premium accounts, and a free account gets ErrPremiumRequired. The archive is the curator's
 // manifest, not a mod file, and it is the one body this package downloads from outside Nexus's API.
 func (c *Client) PremiumCollectionArchive(ctx context.Context, downloadLink string) ([]byte, error) {
-	if !strings.HasPrefix(downloadLink, "/v2/collections/") || strings.Contains(downloadLink, "..") {
+	if !collectionLink.MatchString(downloadLink) {
 		return nil, fmt.Errorf("unexpected collection download link %q", downloadLink)
 	}
 	var res struct {
@@ -57,9 +58,13 @@ func (c *Client) PremiumCollectionArchive(ctx context.Context, downloadLink stri
 	if err != nil {
 		return nil, err
 	}
-	hc := cmp.Or(c.HTTP, http.DefaultClient)
+	hc := httpkit.WithRedirect(cmp.Or(c.HTTP, http.DefaultClient), httpkit.NoDowngrade)
 	resp, err := hc.Do(req)
 	if err != nil {
+		if ue, ok := errors.AsType[*url.Error](err); ok {
+			// The mirror link is signed in its query, and the error quotes the URL into logs.
+			ue.URL, _, _ = strings.Cut(ue.URL, "?")
+		}
 		return nil, cmp.Or(context.Cause(ctx), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -76,6 +81,10 @@ func (c *Client) PremiumCollectionArchive(ctx context.Context, downloadLink stri
 	}
 	return b, nil
 }
+
+// collectionLink admits only slash-separated plain segments under /v2/collections/, so no percent-encoded dot
+// segment, query or fragment can steer the bearer-carrying request to another API path.
+var collectionLink = regexp.MustCompile(`^/v2/collections(?:/[A-Za-z0-9_-]+)+$`)
 
 var errMirrorStalled = errors.New("the collection mirror stopped sending data")
 

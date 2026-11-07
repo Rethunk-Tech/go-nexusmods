@@ -160,7 +160,7 @@ func TestPremiumCollectionArchiveRefusesOtherPathsAndSchemes(t *testing.T) {
 	c := New("TestApp", "9.9")
 	c.BaseURL = api.URL
 	c = c.WithKey("k")
-	for _, link := range []string{"/v1/users/validate.json", "/v2/collections/../graphql", "https://evil.test/v2/collections/x"} {
+	for _, link := range []string{"/v1/users/validate.json", "/v2/collections/../graphql", "/v2/collections/%2e%2e/%2e%2e/v1/users/validate.json", "/v2/collections/x?y=1", "/v2/collections/x#f", "/v2/collections/", "https://evil.test/v2/collections/x"} {
 		if _, err := c.PremiumCollectionArchive(t.Context(), link); err == nil {
 			t.Fatalf("%q was fetched", link)
 		}

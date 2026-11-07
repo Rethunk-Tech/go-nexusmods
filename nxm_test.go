@@ -34,6 +34,8 @@ func TestParseNXM(t *testing.T) {
 		"extra query":  {ok + "&admin=1", 42, ReasonForm},
 		"repeated key": {"nxm://stardewvalley/mods/1/files/2?key=a&key=b&user_id=42", 42, ReasonForm},
 		"no key":       {"nxm://stardewvalley/mods/1/files/2?key=&expires=1000600&user_id=42", 42, ReasonForm},
+		"repeated exp": {"nxm://stardewvalley/mods/1/files/2?key=k&expires=1000600&user_id=42&expires=1", 42, ReasonForm},
+		"repeated uid": {"nxm://stardewvalley/mods/1/files/2?key=k&expires=1000600&user_id=42&user_id=7", 42, ReasonForm},
 		"fragment":     {ok + "#x", 42, ReasonForm},
 		"userinfo":     {"nxm://me@stardewvalley/mods/1/files/2?key=k&expires=1000600&user_id=42", 42, ReasonForm},
 	}

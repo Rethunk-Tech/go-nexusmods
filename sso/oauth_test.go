@@ -252,3 +252,79 @@ func TestExchangeKeepsAServerFailureApartFromARevokedGrant(t *testing.T) {
 		t.Fatalf("502 on refresh: %v", err)
 	}
 }
+
+func TestExchangeDoesNotFollowARedirectWithTheRefreshToken(t *testing.T) {
+	var leaked string
+	other := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		leaked = r.PostForm.Get("refresh_token")
+	}))
+	defer other.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL, http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+	o := OAuth{ClientID: "cid", AuthBase: srv.URL}
+	if _, err := o.exchange(t.Context(), url.Values{"grant_type": {"refresh_token"}, "refresh_token": {"SECRET"}}); err == nil {
+		t.Fatal("a redirected token exchange succeeded")
+	}
+	if leaked != "" {
+		t.Fatalf("the refresh token reached another origin: %q", leaked)
+	}
+}
+
+func TestExchangeRefusesAnExpiryThatOverflows(t *testing.T) {
+	for _, in := range []string{"10000000000", "-5"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"access_token":"A","refresh_token":"R","expires_in":` + in + `}`))
+		}))
+		o := OAuth{ClientID: "cid", AuthBase: srv.URL}
+		_, err := o.exchange(t.Context(), url.Values{"grant_type": {"refresh_token"}, "refresh_token": {"R"}})
+		srv.Close()
+		if err == nil {
+			t.Fatalf("expires_in %s was accepted", in)
+		}
+	}
+}
+
+func TestAFailedSaveKeepsTheRotatedGrantForTheNextFresh(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	store := &memStore{t: Tokens{Access: "old", Refresh: "R1", Expires: now.Add(-time.Hour)}, has: true, saveErr: errors.New("keyring locked")}
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_ = r.ParseForm()
+		if r.PostForm.Get("refresh_token") != "R1" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{"access_token":"A2","refresh_token":"R2","expires_in":3600}`))
+	}))
+	defer srv.Close()
+	o := OAuth{ClientID: "cid", AuthBase: srv.URL, Now: func() time.Time { return now }, Store: store}
+	got, err := o.Fresh(t.Context())
+	if err == nil || got.Refresh != "R2" {
+		t.Fatalf("a failed save must surface with the new grant: %+v, %v", got, err)
+	}
+	store.saveErr = nil
+	got, err = o.Fresh(t.Context())
+	if err != nil || got.Refresh != "R2" || calls != 1 || store.t.Refresh != "R2" {
+		t.Fatalf("the spent refresh token was sent again: %+v, %v, %d calls, stored %+v", got, err, calls, store.t)
+	}
+}
+
+func TestCleartextEndpointsAreRefusedExceptOnLoopback(t *testing.T) {
+	for raw, ok := range map[string]bool{
+		"https://users.nexusmods.com/oauth": true, "http://127.0.0.1:8080/oauth": true, "http://localhost/x": true,
+		"http://[::1]:1/x": true, "http://users.nexusmods.com/oauth": false, "ws://sso.nexusmods.com": false,
+	} {
+		scheme := "https"
+		if err := requireTLS(raw, scheme); (err == nil) != ok {
+			t.Errorf("%s: err = %v", raw, err)
+		}
+	}
+	o := OAuth{ClientID: "c", AuthBase: "http://users.nexusmods.com/oauth"}
+	if _, err := o.exchange(t.Context(), url.Values{"grant_type": {"refresh_token"}}); err == nil {
+		t.Fatal("a cleartext token endpoint was used")
+	}
+}

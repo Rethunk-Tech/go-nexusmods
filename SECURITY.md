@@ -21,7 +21,8 @@ Please do not open a public issue for a suspected vulnerability first.
 - Collection links (`Collection`): a non-http(s) URL never reaches the caller.
 - `ParseNXM`, `NXMDomain`, `ParseModURL`: pasted or remote text; only the exact forms are accepted, and `ParseNXM`
   refuses a link for another user or an expired one.
-- Credentials: a redirect to another origin is refused, and a transport error carries no `nxm` key or expiry.
+- Credentials: a redirect to another origin is refused, and a transport error carries no `nxm` key or expiry. The OAuth token endpoint is never redirected (a 307 would re-send the refresh token), an `AuthBase` or `SocketURL` override must be `https`/`wss` unless it is loopback, and a rotated refresh token whose `Store.Save` failed is kept in memory and offered to the next `Fresh`.
+- The collection archive: the API path must be plain `/v2/collections/...` segments (no percent-encoding, query or fragment); the mirror may not redirect off https, and its errors carry no signed query.
 - `sso.OAuth`: the callback accepts only its own `state`; the token body is capped at 64 KiB; PKCE S256.
 
 ## What is out of scope

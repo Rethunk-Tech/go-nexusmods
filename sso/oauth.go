@@ -30,6 +30,9 @@ const (
 
 	refreshMargin = time.Minute
 	maxTokenBody  = 64 << 10
+	// maxExpiresIn is a year in seconds: a lifetime beyond it is a broken answer, and the multiplication to a
+	// time.Duration would overflow for a far larger one.
+	maxExpiresIn = 365 * 24 * 60 * 60
 
 	defaultDoneText = "Signed in. You can close this tab."
 	defaultFailText = "Sign-in did not finish. You can close this tab."
@@ -88,6 +91,9 @@ type OAuth struct {
 }
 
 func (o OAuth) base() string { return cmp.Or(o.AuthBase, AuthBase) }
+
+// checkBase refuses an endpoint override that would send a token in cleartext; loopback is allowed for local servers.
+func (o OAuth) checkBase() error { return requireTLS(o.base(), "https") }
 
 func (o OAuth) now() time.Time {
 	if o.Now != nil {
@@ -155,6 +161,9 @@ func (o OAuth) Authorize(ctx context.Context) (Tokens, error) {
 	if o.OpenBrowser == nil {
 		return Tokens{}, errors.New("no browser to open")
 	}
+	if err := o.checkBase(); err != nil {
+		return Tokens{}, err
+	}
 	runCtx, cancel := context.WithTimeout(ctx, cmp.Or(o.Timeout, defaultTimeout))
 	defer cancel()
 
@@ -209,13 +218,17 @@ func (o OAuth) Authorize(ctx context.Context) (Tokens, error) {
 }
 
 func (o OAuth) exchange(ctx context.Context, form url.Values) (Tokens, error) {
+	if err := o.checkBase(); err != nil {
+		return Tokens{}, err
+	}
 	form.Set("client_id", o.ClientID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.base()+"/token", strings.NewReader(form.Encode()))
 	if err != nil {
 		return Tokens{}, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	body, err := httpkit.DoCapped(o.client(), req, maxTokenBody, nil)
+	// A 307 or 308 would re-send the form, refresh token included, to wherever it points.
+	body, err := httpkit.DoCapped(httpkit.WithRedirect(o.client(), httpkit.NoFollow), req, maxTokenBody, nil)
 	if se, ok := errors.AsType[*httpkit.StatusError](err); ok && form.Get("grant_type") == "refresh_token" &&
 		(se.Code == http.StatusBadRequest || se.Code == http.StatusUnauthorized) {
 		return Tokens{}, fmt.Errorf("nexus token endpoint answered %s: %w", se.Status, ErrRevoked)
@@ -233,6 +246,9 @@ func (o OAuth) exchange(ctx context.Context, form url.Values) (Tokens, error) {
 	}
 	if raw.Access == "" {
 		return Tokens{}, errors.New("nexus token endpoint returned no access token")
+	}
+	if raw.ExpiresIn < 0 || raw.ExpiresIn > maxExpiresIn {
+		return Tokens{}, fmt.Errorf("nexus token endpoint returned expires_in %d", raw.ExpiresIn)
 	}
 	return Tokens{Access: raw.Access, Refresh: raw.Refresh, Expires: o.now().Add(time.Duration(raw.ExpiresIn) * time.Second)}, nil
 }
@@ -252,6 +268,7 @@ func (o OAuth) Fresh(ctx context.Context) (Tokens, error) {
 	if t, err = o.Store.Load(); err != nil {
 		return Tokens{}, err
 	}
+	t = o.recovered(t)
 	if o.usable(t) {
 		return t, nil
 	}
@@ -263,7 +280,39 @@ func (o OAuth) Fresh(ctx context.Context) (Tokens, error) {
 		return Tokens{}, err
 	}
 	next.Refresh = cmp.Or(next.Refresh, t.Refresh)
-	return next, o.Store.Save(next)
+	return next, o.save(t.Refresh, next)
+}
+
+// unsaved is the last refresh whose Save failed: Nexus has already spent the stored refresh token, so the new grant
+// is kept here and offered to the next Fresh until a Save takes it.
+var unsaved struct {
+	spent  string
+	tokens Tokens
+}
+
+// save stores next, retrying once, and keeps it in memory when the store refuses both times.
+func (o OAuth) save(spent string, next Tokens) error {
+	err := o.Store.Save(next)
+	if err != nil {
+		err = o.Store.Save(next)
+	}
+	if err != nil {
+		unsaved.spent, unsaved.tokens = spent, next
+		return fmt.Errorf("nexus sign-in refreshed but the new tokens were not stored: %w", err)
+	}
+	unsaved.spent = ""
+	return nil
+}
+
+// recovered swaps the stored grant for the unsaved one that replaced it.
+func (o OAuth) recovered(t Tokens) Tokens {
+	if unsaved.spent == "" || unsaved.spent != t.Refresh {
+		return t
+	}
+	if o.Store.Save(unsaved.tokens) == nil {
+		unsaved.spent = ""
+	}
+	return unsaved.tokens
 }
 
 func (o OAuth) usable(t Tokens) bool {

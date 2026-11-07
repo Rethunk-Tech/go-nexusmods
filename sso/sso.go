@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"time"
 
@@ -75,6 +76,9 @@ func (l Legacy) Run(ctx context.Context) (string, error) {
 	l.PageURL = cmp.Or(l.PageURL, PageURL)
 	l.Timeout = cmp.Or(l.Timeout, defaultTimeout)
 	l.RetryDelay = cmp.Or(l.RetryDelay, time.Second)
+	if err := requireTLS(l.SocketURL, "wss"); err != nil {
+		return "", err
+	}
 	runCtx, cancel := context.WithTimeout(ctx, l.Timeout)
 	defer cancel()
 
@@ -173,4 +177,20 @@ func (l Legacy) emit(s State) {
 	if l.OnState != nil {
 		l.OnState(s)
 	}
+}
+
+// requireTLS refuses an endpoint that is not the secure scheme, so a token is never sent in cleartext; a loopback
+// host is allowed any scheme for local servers.
+func requireTLS(raw, secure string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("nexus sign-in: bad endpoint: %w", err)
+	}
+	if u.Scheme == secure {
+		return nil
+	}
+	if ip, err := netip.ParseAddr(u.Hostname()); (err == nil && ip.IsLoopback()) || u.Hostname() == "localhost" {
+		return nil
+	}
+	return fmt.Errorf("nexus sign-in: the endpoint must be %s://, got %s://", secure, u.Scheme)
 }

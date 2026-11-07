@@ -6,6 +6,15 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The OAuth token exchange no longer follows redirects, so a 307 cannot re-send the refresh token to another origin.
+- `PremiumCollectionArchive` takes only plain `/v2/collections/` segments (a percent-encoded `..` reached the API with the bearer token), drops the signed query from mirror errors and refuses an https-to-http mirror redirect.
+- An `expires_in` below zero or over a year is an error instead of an expiry in the past.
+- A refresh whose `Store.Save` failed retries once, then keeps the new grant in memory for the next `Fresh` and returns an error saying it was not stored.
+- `sso.OAuth` and `sso.Legacy` refuse an `http` or `ws` endpoint override unless it is loopback.
+- `ParseNXM` refuses a repeated `expires` or `user_id`.
+
 ### Added
 
 - `Client.Search` lists a page of a game's mods through the v2 GraphQL API (`SearchQuery`: name text, sort, any-of and excluded categories, count and offset; `SearchResult`, `SearchMod`).

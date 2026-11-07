@@ -30,8 +30,8 @@ Windows-only behaviour runs; say here which tests depend on it.
   `PremiumCollectionArchive`.
 - `PremiumCollectionArchive` does not use `httpkit.DoCapped`: the mirror is outside Nexus's API and may stall, so
   silence is bounded by `mirrorTimeout` (before headers and between reads, never a total deadline), and a stall
-  fails the fetch even if the body then ends cleanly. Only `/v2/collections/` paths without `..` and `https://`
-  mirrors are accepted.
+  fails the fetch even if the body then ends cleanly. Only `/v2/collections/` paths of plain `[A-Za-z0-9_-]` segments and `https://`
+  mirrors are accepted; a mirror redirect may not leave https and its errors drop the signed query.
 - `decodeCollection` drops every non-http(s) URL: curator text is remote data a caller may open with a URL handler.
 - `Collection`, `Page`, `File`, `Requirement`, `TrackedMod`, `Window`, `Limits` and `NXMLink` are stored or printed
   by callers: their JSON tags (`Collection` has none) are a format, pinned by `TestJSONFormsAreStable`.
