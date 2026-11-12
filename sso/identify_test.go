@@ -3,6 +3,7 @@ package sso
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -32,5 +33,12 @@ func TestIdentify(t *testing.T) {
 	answer = `{"sub":"not-a-number"}`
 	if _, err := o.Identify(t.Context(), "A1"); err == nil {
 		t.Fatal("an unreadable account id passed")
+	}
+}
+
+func TestIdentifyRefusesCleartextRemote(t *testing.T) {
+	_, err := (OAuth{AuthBase: "http://users.nexusmods.com/oauth"}).Identify(t.Context(), "access-token")
+	if err == nil || !strings.Contains(err.Error(), "must be https://") {
+		t.Fatalf("Identify cleartext: %v", err)
 	}
 }

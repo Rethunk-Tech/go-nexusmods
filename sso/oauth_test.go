@@ -327,4 +327,7 @@ func TestCleartextEndpointsAreRefusedExceptOnLoopback(t *testing.T) {
 	if _, err := o.exchange(t.Context(), url.Values{"grant_type": {"refresh_token"}}); err == nil {
 		t.Fatal("a cleartext token endpoint was used")
 	}
+	if _, err := o.Identify(t.Context(), "tok"); err == nil || !strings.Contains(err.Error(), "must be https://") {
+		t.Fatalf("a cleartext userinfo endpoint was used: %v", err)
+	}
 }

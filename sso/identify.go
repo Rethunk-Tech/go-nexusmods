@@ -21,6 +21,9 @@ type Identity struct {
 // Identify asks Nexus who an access token belongs to. The API's /v1/users/validate.json answers personal API keys
 // only and refuses an access token.
 func (o OAuth) Identify(ctx context.Context, access string) (Identity, error) {
+	if err := o.checkBase(); err != nil {
+		return Identity{}, err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.base()+"/userinfo", http.NoBody)
 	if err != nil {
 		return Identity{}, err
