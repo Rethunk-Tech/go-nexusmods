@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Rethunk-Tech/go-httpkit"
@@ -33,6 +34,30 @@ func TestScanStatusesCachesGraphQLResponse(t *testing.T) {
 	}
 	if requests != 1 || first[12] != "QUARANTINED" || second[12] != "QUARANTINED" {
 		t.Fatalf("requests=%d first=%v second=%v", requests, first, second)
+	}
+}
+
+func TestScanStatusesDoesNotCacheGraphQLErrors(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.Header().Set("Content-Type", "application/json")
+		if requests == 1 {
+			_, _ = w.Write([]byte(`{"errors":[{"message":"too complex"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"modFiles":[{"fileId":12,"scannedV2":"QUARANTINED"}]}}`))
+	}))
+	defer server.Close()
+
+	client := New("TestApp", "test")
+	client.BaseURL = server.URL
+	if _, err := client.ScanStatuses(t.Context(), stardew, 30597); err == nil || !strings.Contains(err.Error(), "too complex") {
+		t.Fatalf("first: %v", err)
+	}
+	got, err := client.ScanStatuses(t.Context(), stardew, 30597)
+	if err != nil || requests != 2 || got[12] != "QUARANTINED" {
+		t.Fatalf("second: requests=%d got=%v err=%v", requests, got, err)
 	}
 }
 

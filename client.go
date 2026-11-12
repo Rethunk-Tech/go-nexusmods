@@ -335,9 +335,15 @@ func (c *Client) ScanStatuses(ctx context.Context, t Title, modID int) (map[int]
 				Scanned string `json:"scannedV2"`
 			} `json:"modFiles"`
 		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, err
+	}
+	if len(raw.Data.Files) == 0 && len(raw.Errors) > 0 {
+		return nil, errors.New("nexus: " + raw.Errors[0].Message)
 	}
 	statuses := make(map[int]string, len(raw.Data.Files))
 	for _, file := range raw.Data.Files {
