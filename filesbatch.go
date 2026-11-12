@@ -3,6 +3,7 @@ package nexusmods
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -46,10 +47,16 @@ func (c *Client) filesOf(ctx context.Context, t Title, modIDs []int, out map[int
 		return err
 	}
 	var raw struct {
-		Data map[string][]BatchFile `json:"data"`
+		Data   map[string][]BatchFile `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return err
+	}
+	if len(raw.Data) == 0 && len(raw.Errors) > 0 {
+		return errors.New("nexus: " + raw.Errors[0].Message)
 	}
 	for _, id := range modIDs {
 		if files, ok := raw.Data[fmt.Sprintf("m%d", id)]; ok {

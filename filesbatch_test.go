@@ -54,3 +54,16 @@ func TestFilesOfStopsAtARateLimitWithoutRetrying(t *testing.T) {
 		t.Fatalf("calls %d, err %v", calls, err)
 	}
 }
+
+func TestFilesOfReturnsGraphQLErrors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"errors":[{"message":"too complex"}]}`))
+	}))
+	defer srv.Close()
+	c := New("TestApp", "test").WithKey("k")
+	c.BaseURL = srv.URL
+	got, err := c.FilesOf(t.Context(), stardew, []int{41150})
+	if err == nil || !strings.Contains(err.Error(), "too complex") {
+		t.Fatalf("err %v files %+v", err, got)
+	}
+}
