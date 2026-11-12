@@ -61,6 +61,25 @@ func TestScanStatusesDoesNotCacheGraphQLErrors(t *testing.T) {
 	}
 }
 
+func TestScanStatusesReturnsACopy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"modFiles":[{"fileId":12,"scannedV2":"QUARANTINED"}]}}`))
+	}))
+	defer server.Close()
+	client := New("TestApp", "test")
+	client.BaseURL = server.URL
+	first, err := client.ScanStatuses(t.Context(), stardew, 30597)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delete(first, 12)
+	first[99] = "mutated"
+	second, err := client.ScanStatuses(t.Context(), stardew, 30597)
+	if err != nil || second[12] != "QUARANTINED" || second[99] != "" {
+		t.Fatalf("second=%v err=%v", second, err)
+	}
+}
+
 var stardew = Title{Domain: "stardewvalley", ID: 1303}
 
 func TestScanStatusesTellARefusedKeyFromASpentQuota(t *testing.T) {

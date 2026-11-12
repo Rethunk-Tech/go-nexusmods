@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -317,8 +318,9 @@ func (c *Client) graphql(ctx context.Context, query any) ([]byte, error) {
 func (c *Client) ScanStatuses(ctx context.Context, t Title, modID int) (map[int]string, error) {
 	c.scanMu.Lock()
 	if statuses, ok := c.scans[scanKey{t.ID, modID}]; ok {
+		out := maps.Clone(statuses)
 		c.scanMu.Unlock()
-		return statuses, nil
+		return out, nil
 	}
 	c.scanMu.Unlock()
 
@@ -352,7 +354,7 @@ func (c *Client) ScanStatuses(ctx context.Context, t Title, modID int) (map[int]
 	c.scanMu.Lock()
 	c.scans[scanKey{t.ID, modID}] = statuses
 	c.scanMu.Unlock()
-	return statuses, nil
+	return maps.Clone(statuses), nil
 }
 
 // Files lists every file of a mod.
