@@ -93,6 +93,7 @@ func FuzzDecodeCollection(f *testing.F) {
 	f.Add([]byte(`{"data":{"collectionRevision":{"revisionNumber":4,"downloadLink":"/v2/collections/1/revisions/4/download_link","installationInfo":" Read me ",` +
 		`"externalResources":[{"name":"Tool","resourceType":"ExternalSite","resourceUrl":"https://example.com/t","optional":true},{"name":"Bad","resourceUrl":"ms-settings:"}],` +
 		`"collection":{"name":"Cozy Farm","slug":"cozy-farm","user":{"name":"Pat"}},"modFiles":[{"fileId":11,"optional":false,"file":{"modId":100}},{"fileId":33,"file":null}]}}}`))
+	f.Add(fixture(f, "collection-revision.json"))
 	f.Add([]byte(`{"errors":[{"message":"not found"}]}`))
 	f.Add([]byte(`{"data":{"collectionRevision":null}}`))
 	f.Fuzz(func(t *testing.T, raw []byte) {

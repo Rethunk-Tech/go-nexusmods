@@ -14,6 +14,7 @@ func TestParseArchiveName(t *testing.T) {
 		{`C:\Downloads\Mod-7-1-1700000000.RAR`, ArchiveName{"Mod", 7, "1", 1700000000, "rar"}, true},
 		{"/home/u/Downloads/Mod-7-1-1700000000.zip", ArchiveName{"Mod", 7, "1", 1700000000, "zip"}, true},
 		{"Mod-0-1-1700000000.zip", ArchiveName{}, false},
+		{"0-1-0-000000000.ZiP", ArchiveName{}, false},
 		{"Mod-7-1-12345.zip", ArchiveName{}, false},
 		{"Mod-7-1-1700000000.tar", ArchiveName{}, false},
 		{"random.zip", ArchiveName{}, false},

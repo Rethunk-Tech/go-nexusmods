@@ -26,3 +26,28 @@ func FuzzParseNXM(f *testing.F) {
 		}
 	})
 }
+
+func FuzzNXMDomain(f *testing.F) {
+	f.Add("nxm://stardewvalley/mods/1915/files/77?key=abc_-x&expires=1000600&user_id=42")
+	f.Add("nxm://skyrim/mods/1/files/2?key=k&expires=1000600&user_id=42")
+	f.Add("nxm://oauth/callback?code=1")
+	f.Add("nxm://me@stardewvalley/mods/1/files/2")
+	f.Add("nxm://")
+	f.Add("%zz")
+	f.Add("")
+	f.Fuzz(func(t *testing.T, raw string) {
+		host, err := NXMDomain(raw)
+		if err == nil {
+			if host == "" {
+				t.Fatalf("accepted empty host for %q", raw)
+			}
+			return
+		}
+		if host != "" {
+			t.Fatalf("error with host %q for %q: %v", host, raw, err)
+		}
+		if _, ok := errors.AsType[*RejectError](err); !ok {
+			t.Fatalf("untyped error for %q: %v", raw, err)
+		}
+	})
+}

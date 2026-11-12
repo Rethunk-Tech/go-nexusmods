@@ -35,7 +35,7 @@ func ParseArchiveName(file string) (ArchiveName, bool) {
 		return ArchiveName{}, false
 	}
 	ts, err := strconv.ParseInt(m[4], 10, 64)
-	if err != nil {
+	if err != nil || ts <= 0 || strconv.FormatInt(ts, 10) != m[4] {
 		return ArchiveName{}, false
 	}
 	return ArchiveName{Name: m[1], ModID: id, Version: m[3], Timestamp: ts, Ext: strings.ToLower(m[5])}, true
