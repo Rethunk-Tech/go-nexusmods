@@ -32,6 +32,10 @@ func TestDecodeCollection(t *testing.T) {
 	if !errors.Is(err, httpkit.ErrNotFound) {
 		t.Fatalf("errors: %v", err)
 	}
+	_, err = decodeCollection("cozy-farm", []byte(`{"errors":[{"message":"too complex"}]}`))
+	if err == nil || errors.Is(err, httpkit.ErrNotFound) || !strings.Contains(err.Error(), "too complex") {
+		t.Fatalf("graphql error: %v", err)
+	}
 }
 
 func TestDecodeCollectionRevisionFixture(t *testing.T) {

@@ -200,7 +200,10 @@ func decodeCollection(slug string, raw []byte) (Collection, error) {
 	if err := json.Unmarshal(raw, &parsed); err != nil {
 		return Collection{}, err
 	}
-	if len(parsed.Errors) > 0 || parsed.Data == nil || parsed.Data.CollectionRevision == nil {
+	if parsed.Data == nil || parsed.Data.CollectionRevision == nil {
+		if len(parsed.Errors) > 0 && !strings.EqualFold(parsed.Errors[0].Message, "not found") {
+			return Collection{}, errors.New("nexus: " + parsed.Errors[0].Message)
+		}
 		return Collection{}, fmt.Errorf("nexus has no collection %q: %w", slug, httpkit.ErrNotFound)
 	}
 	rev := parsed.Data.CollectionRevision
