@@ -38,7 +38,7 @@ const (
 	requestTimeout = 20 * time.Second
 	// maxWindow is the longest window Nexus has: the daily one.
 	maxWindow = 24 * time.Hour
-	maxBody        = 16 << 20
+	maxBody   = 16 << 20
 )
 
 var (
