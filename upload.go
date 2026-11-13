@@ -97,7 +97,7 @@ func (u *Uploader) send(ctx context.Context, method, rawURL, contentType string,
 	}
 	req.ContentLength = size
 	req.Header.Set("Content-Type", contentType)
-	res, err := cmp.Or(u.c.HTTP, http.DefaultClient).Do(req)
+	res, err := httpkit.WithRedirect(cmp.Or(u.c.HTTP, http.DefaultClient), httpkit.NoDowngrade).Do(req)
 	if ue, ok := errors.AsType[*url.Error](err); ok {
 		// A presigned address carries its signature in the query; the error quotes the URL into logs.
 		ue.URL, _, _ = strings.Cut(ue.URL, "?")
