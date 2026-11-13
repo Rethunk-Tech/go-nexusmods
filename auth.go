@@ -21,6 +21,9 @@ func (c *Client) authorize(ctx context.Context, req *http.Request) error {
 		if err != nil {
 			return err
 		}
+		if token == "" {
+			return ErrUnauthorized
+		}
 		req.Header.Set("Authorization", "Bearer "+token)
 		return nil
 	}
