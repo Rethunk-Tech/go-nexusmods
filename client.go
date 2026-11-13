@@ -379,7 +379,7 @@ func (c *Client) Files(ctx context.Context, t Title, modID int) ([]File, error) 
 			New int `json:"new_file_id"`
 		} `json:"file_updates"`
 	}
-	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/files.json", t.Domain, modID), false, &raw); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/files.json", url.PathEscape(t.Domain), modID), false, &raw); err != nil {
 		return nil, err
 	}
 	files := make([]File, 0, len(raw.Files))
@@ -430,7 +430,7 @@ func (c *Client) downloadLinks(ctx context.Context, path string) ([]Link, error)
 }
 
 func downloadPath(t Title, modID, fileID int) string {
-	return fmt.Sprintf("/v1/games/%s/mods/%d/files/%d/download_link.json", t.Domain, modID, fileID)
+	return fmt.Sprintf("/v1/games/%s/mods/%d/files/%d/download_link.json", url.PathEscape(t.Domain), modID, fileID)
 }
 
 // DownloadLinks asks for a file's download mirrors in Nexus's order, redeeming the key and expiry of an nxm:// link

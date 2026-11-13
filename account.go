@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -89,12 +90,12 @@ func (c *Client) endorse(ctx context.Context, path, version string) (EndorseStat
 
 // Endorse records an endorsement of modID at version for the signed-in user.
 func (c *Client) Endorse(ctx context.Context, t Title, modID int, version string) (EndorseStatus, error) {
-	return c.endorse(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/endorse.json", t.Domain, modID), version)
+	return c.endorse(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/endorse.json", url.PathEscape(t.Domain), modID), version)
 }
 
 // Abstain withdraws an endorsement of modID at version for the signed-in user.
 func (c *Client) Abstain(ctx context.Context, t Title, modID int, version string) (EndorseStatus, error) {
-	return c.endorse(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/abstain.json", t.Domain, modID), version)
+	return c.endorse(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/abstain.json", url.PathEscape(t.Domain), modID), version)
 }
 
 func (c *Client) cache() *trackedCache {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"net/url"
 	"slices"
 	"time"
 
@@ -65,7 +66,7 @@ func (c *Client) Page(ctx context.Context, t Title, modID int) (Page, error) {
 			Status string `json:"endorse_status"`
 		} `json:"endorsement"`
 	}
-	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s/mods/%d.json", t.Domain, modID), false, &raw); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s/mods/%d.json", url.PathEscape(t.Domain), modID), false, &raw); err != nil {
 		return Page{}, err
 	}
 	p := Page{
@@ -91,7 +92,7 @@ type Changelog struct {
 // lose along with duplicates, so the object is read token by token; a mod with none answers [].
 func (c *Client) Changelogs(ctx context.Context, t Title, modID, limit int) ([]Changelog, error) {
 	var raw json.RawMessage
-	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/changelogs.json", t.Domain, modID), false, &raw); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/changelogs.json", url.PathEscape(t.Domain), modID), false, &raw); err != nil {
 		return nil, err
 	}
 	return parseChangelogs(raw, limit)
@@ -146,7 +147,7 @@ func (c *Client) Categories(ctx context.Context, t Title) (map[int]string, error
 			Name string `json:"name"`
 		} `json:"categories"`
 	}
-	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s.json", t.Domain), false, &raw); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/v1/games/%s.json", url.PathEscape(t.Domain)), false, &raw); err != nil {
 		return nil, err
 	}
 	out := make(map[int]string, len(raw.Categories))
