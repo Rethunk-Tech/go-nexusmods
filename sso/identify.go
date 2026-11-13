@@ -30,7 +30,8 @@ func (o OAuth) Identify(ctx context.Context, access string) (Identity, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+access)
 	req.Header.Set("Accept", "application/json")
-	body, err := httpkit.DoCapped(o.client(), req, maxTokenBody, nil)
+	// net/http keeps Authorization across a same-hostname redirect, https to http included.
+	body, err := httpkit.DoCapped(httpkit.WithRedirect(o.client(), httpkit.SameOrigin), req, maxTokenBody, nil)
 	if err != nil {
 		return Identity{}, fmt.Errorf("nexus userinfo: %w", err)
 	}

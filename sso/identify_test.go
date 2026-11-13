@@ -42,3 +42,22 @@ func TestIdentifyRefusesCleartextRemote(t *testing.T) {
 		t.Fatalf("Identify cleartext: %v", err)
 	}
 }
+
+func TestIdentifyKeepsTheTokenOffARedirect(t *testing.T) {
+	var leaked string
+	plain := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		leaked = r.Header.Get("Authorization")
+	}))
+	defer plain.Close()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, plain.URL+"/userinfo", http.StatusFound)
+	}))
+	defer srv.Close()
+	o := OAuth{AuthBase: srv.URL, HTTP: srv.Client()}
+	if _, err := o.Identify(t.Context(), "SECRET"); err == nil {
+		t.Fatal("a redirected userinfo answer was accepted")
+	}
+	if leaked != "" {
+		t.Fatalf("the access token followed a redirect to cleartext: %q", leaked)
+	}
+}
