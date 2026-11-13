@@ -11,8 +11,8 @@ tool (
 )
 
 require (
-	github.com/Rethunk-Tech/go-httpkit v0.3.0
-	github.com/Rethunk-Tech/go-safefs v0.9.0
+	github.com/Rethunk-Tech/go-httpkit v0.3.1
+	github.com/Rethunk-Tech/go-safefs v0.9.1
 	github.com/Rethunk-Tech/go-semverish v0.3.0
 	github.com/coder/websocket v1.8.15
 	github.com/gofrs/flock v0.13.2
