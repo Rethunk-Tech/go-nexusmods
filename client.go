@@ -36,6 +36,8 @@ const (
 	LimitFloor = 5
 
 	requestTimeout = 20 * time.Second
+	// maxWindow is the longest window Nexus has: the daily one.
+	maxWindow = 24 * time.Hour
 	maxBody        = 16 << 20
 )
 
@@ -156,10 +158,18 @@ func (c *Client) record(h http.Header) {
 	}
 	dl, _ := get("X-Rl-Daily-Limit")
 	hl, _ := get("X-Rl-Hourly-Limit")
+	// No request is sent while a window is at the floor, so no answer could correct a reset no real window has.
+	reset := func(name string) time.Time {
+		t := parseReset(h.Get(name))
+		if t.Sub(c.now()) > maxWindow {
+			return time.Time{}
+		}
+		return t
+	}
 	v := Limits{
 		Known:  true,
-		Daily:  Window{Remaining: dr, Limit: dl, Reset: parseReset(h.Get("X-Rl-Daily-Reset"))},
-		Hourly: Window{Remaining: hr, Limit: hl, Reset: parseReset(h.Get("X-Rl-Hourly-Reset"))},
+		Daily:  Window{Remaining: dr, Limit: dl, Reset: reset("X-Rl-Daily-Reset")},
+		Hourly: Window{Remaining: hr, Limit: hl, Reset: reset("X-Rl-Hourly-Reset")},
 	}
 	c.lim.mu.Lock()
 	c.lim.v = v
