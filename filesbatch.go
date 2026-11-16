@@ -17,8 +17,7 @@ type BatchFile struct {
 	Name     string `json:"name"`
 	Version  string `json:"version"`
 	Category string `json:"category"`
-	// ReplacedBy is the author's file_updates successor. The batched query does not carry it, so it comes from a
-	// mod's cached full file list when there is one.
+	// ReplacedBy is the author's file_updates successor. FilesOf/batched query leaves it 0 and only Files() fills it.
 	ReplacedBy int `json:"replacedBy,omitempty"`
 }
 
