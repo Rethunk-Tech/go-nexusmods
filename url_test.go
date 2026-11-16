@@ -10,6 +10,9 @@ func TestParseModURL(t *testing.T) {
 		ok     bool
 	}{
 		{"https://www.nexusmods.com/stardewvalley/mods/1915", "stardewvalley", 1915, true},
+		{"https://www.nexusmods.com:443/stardewvalley/mods/1915", "stardewvalley", 1915, true},
+		{"https://www.nexusmods.com:8443/stardewvalley/mods/1915", "", 0, false},
+		{"https://user@www.nexusmods.com/stardewvalley/mods/1915", "", 0, false},
 		{"https://www.nexusmods.com/stardewvalley/mods/1915?tab=files", "stardewvalley", 1915, true},
 		{"https://nexusmods.com/games/stardewvalley/mods/1915/", "stardewvalley", 1915, true},
 		{"https://next.nexusmods.com/stardewvalley/mods/1915#x", "stardewvalley", 1915, true},

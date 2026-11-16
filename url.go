@@ -15,10 +15,13 @@ func ModURL(domain string, modID int) string {
 // form; tabs, queries and fragments are ignored.
 func ParseModURL(text string) (domain string, modID int, ok bool) {
 	u, err := url.Parse(strings.TrimSpace(text))
-	if err != nil || u.Scheme != "https" {
+	if err != nil || u.Scheme != "https" || u.User != nil {
 		return "", 0, false
 	}
-	host := strings.TrimPrefix(strings.ToLower(u.Host), "www.")
+	if port := u.Port(); port != "" && port != "443" {
+		return "", 0, false
+	}
+	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
 	if host != "nexusmods.com" && host != "next.nexusmods.com" {
 		return "", 0, false
 	}
