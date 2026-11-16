@@ -287,7 +287,7 @@ func TestWaitUploadStates(t *testing.T) {
 			if tc.inErr != "" && (err == nil || !strings.Contains(err.Error(), tc.inErr)) {
 				t.Errorf("err = %v", err)
 			}
-			if tc.wantIs == ErrUploadFailed {
+			if errors.Is(tc.wantIs, ErrUploadFailed) {
 				fe, ok := errors.AsType[*UploadFailedError](err)
 				if !ok || fe.State != "failed" || fe.Message != tc.message {
 					t.Errorf("err = %#v", err)
