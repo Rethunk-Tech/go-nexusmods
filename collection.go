@@ -43,11 +43,17 @@ func (c *Client) PremiumCollectionArchive(ctx context.Context, downloadLink stri
 	if err := c.get(ctx, downloadLink, true, &res); err != nil {
 		return nil, err
 	}
-	uri := res.Link.URI
+	uri := httpsMirror(res.Link.URI)
 	if len(res.Links) > 0 {
-		uri = res.Links[0].URI
+		uri = ""
+		for _, link := range res.Links {
+			if u := httpsMirror(link.URI); u != "" {
+				uri = u
+				break
+			}
+		}
 	}
-	if !strings.HasPrefix(uri, "https://") {
+	if uri == "" {
 		return nil, errors.New("nexus gave no collection download link")
 	}
 	ctx, cancel := context.WithCancelCause(ctx)
@@ -190,6 +196,16 @@ type collectionGQL struct {
 func webLink(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return ""
+	}
+	return raw
+}
+
+// httpsMirror is raw when url.Parse reads an https scheme, else empty. Mirror URIs arrive with mixed case and
+// leading http entries, and the archive is fetched, so only https is kept.
+func httpsMirror(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || !strings.EqualFold(u.Scheme, "https") {
 		return ""
 	}
 	return raw

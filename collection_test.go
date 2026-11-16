@@ -74,6 +74,25 @@ func TestPremiumCollectionArchiveErrorDropsTheSignedQuery(t *testing.T) {
 	}
 }
 
+func TestPremiumCollectionArchivePicksTheFirstHTTPSDownloadLink(t *testing.T) {
+	var mirror *httptest.Server
+	mirror = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	t.Cleanup(mirror.Close)
+	httpsLink := "HTTPS://" + strings.TrimPrefix(mirror.URL, "https://") + "/a"
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"download_links":[{"URI":"http://example.test/no"},{"URI":"` + httpsLink + `"}]}`))
+	}))
+	t.Cleanup(api.Close)
+	c := New("TestApp", "9.9")
+	c.BaseURL, c.HTTP = api.URL, mirror.Client()
+	b, err := c.WithKey("k").PremiumCollectionArchive(t.Context(), "/v2/collections/x/revisions/1/download_link")
+	if err != nil || string(b) != "ok" {
+		t.Fatalf("got %q, %v", b, err)
+	}
+}
+
 func TestPremiumCollectionArchiveRefusesAnHTTPSDowngradeRedirect(t *testing.T) {
 	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("{}")) }))
 	t.Cleanup(plain.Close)
