@@ -138,6 +138,25 @@ func TestTrackAlreadyTrackedIsOk(t *testing.T) {
 	}
 }
 
+func TestTrackMissingModReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Rl-Daily-Remaining", "19000")
+		w.Header().Set("X-Rl-Daily-Limit", "20000")
+		w.Header().Set("X-Rl-Daily-Reset", "2026-10-01 00:00:00 +0000")
+		setRate(w.Header(), "1900")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"mod does not exist"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := New("TestApp", "9.9")
+	c.BaseURL = srv.URL
+	err := c.WithKey("k").Track(t.Context(), stardew, 541)
+	var msg *MessageError
+	if !errors.As(err, &msg) || msg.Message != "mod does not exist" {
+		t.Fatalf("track = %v", err)
+	}
+}
+
 func TestErrorTextsNameTheirCause(t *testing.T) {
 	for err, want := range map[error]string{
 		&MessageError{Message: "already endorsed"}: "already endorsed",

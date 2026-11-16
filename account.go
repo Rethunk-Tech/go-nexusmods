@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -154,7 +155,8 @@ func (c *Client) invalidateTracked() {
 func (c *Client) setTracked(ctx context.Context, t Title, method string, modID int) error {
 	body := trackBody{DomainName: t.Domain, ModID: modID}
 	if err := c.do(ctx, method, "/v1/user/tracked_mods.json", body, nil); err != nil {
-		if msg, ok := errors.AsType[*MessageError](err); method == http.MethodPost && ok && msg.Code == http.StatusUnprocessableEntity {
+		if msg, ok := errors.AsType[*MessageError](err); method == http.MethodPost && ok && msg.Code == http.StatusUnprocessableEntity &&
+			strings.Contains(strings.ToLower(msg.Message), "already tracking") {
 			c.invalidateTracked()
 			return nil
 		}
