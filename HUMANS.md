@@ -12,31 +12,31 @@ go get github.com/Rethunk-Tech/go-nexusmods
 package main
 
 import (
- "context"
- "fmt"
- "net/http"
- "os"
- "time"
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
 
- "github.com/Rethunk-Tech/go-httpkit"
- "github.com/Rethunk-Tech/go-nexusmods"
+	"github.com/Rethunk-Tech/go-httpkit"
+	"github.com/Rethunk-Tech/go-nexusmods"
 )
 
 func main() {
- c := nexusmods.New("MyApp", "1.0.0")
- c.HTTP = &http.Client{Transport: &httpkit.Transport{UserAgent: "MyApp/1.0.0"}, Timeout: 30 * time.Second}
- c = c.WithKey(os.Getenv("NEXUS_API_KEY"))
+	c := nexusmods.New("MyApp", "1.0.0")
+	c.HTTP = &http.Client{Transport: &httpkit.Transport{UserAgent: "MyApp/1.0.0"}, Timeout: 30 * time.Second}
+	c = c.WithKey(os.Getenv("NEXUS_API_KEY"))
 
- stardew := nexusmods.Title{Domain: "stardewvalley", ID: 1303}
- files, err := c.Files(context.Background(), stardew, 541)
- if err != nil {
-  fmt.Println(err)
-  return
- }
- for _, f := range files {
-  fmt.Println(f.FileID, f.Name, f.Version)
- }
- fmt.Println(c.Limits().Hourly.Remaining)
+	stardew := nexusmods.Title{Domain: "stardewvalley", ID: 1303}
+	files, err := c.Files(context.Background(), stardew, 541)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, f := range files {
+		fmt.Println(f.FileID, f.Name, f.Version)
+	}
+	fmt.Println(c.Limits().Hourly.Remaining)
 }
 ```
 
