@@ -75,8 +75,7 @@ func TestPremiumCollectionArchiveErrorDropsTheSignedQuery(t *testing.T) {
 }
 
 func TestPremiumCollectionArchivePicksTheFirstHTTPSDownloadLink(t *testing.T) {
-	var mirror *httptest.Server
-	mirror = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	mirror := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	t.Cleanup(mirror.Close)
