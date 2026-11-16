@@ -245,6 +245,61 @@ func TestStorageFailuresAreSafeAndTyped(t *testing.T) {
 	}
 }
 
+func TestWaitUploadStates(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		states    []string
+		wantIs    error
+		wantPolls int
+		inErr     string
+		message   string
+	}{
+		{name: "failed", states: []string{"failed"}, wantIs: ErrUploadFailed, wantPolls: 1, message: "rejected"},
+		{name: "created then available", states: []string{"created", "available"}, wantPolls: 2},
+		{name: "unknown", states: []string{"blorble"}, wantIs: ErrUploadPending, wantPolls: uploadPolls, inErr: "blorble"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var polls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/v3/uploads/up1" {
+					http.NotFound(w, r)
+					return
+				}
+				i := int(polls.Add(1))
+				state := tc.states[min(i-1, len(tc.states)-1)]
+				msg := ""
+				if tc.message != "" {
+					msg = `,"message":"` + tc.message + `"`
+				}
+				_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","state":"%s"%s}}`, state, msg)
+			}))
+			t.Cleanup(srv.Close)
+			c := New("App", "9.9.9").WithKey("k")
+			c.HTTP, c.BaseURL = srv.Client(), srv.URL
+			err := (&Uploader{c: c, PollInterval: time.Nanosecond}).wait(t.Context(), "up1")
+			if tc.wantIs == nil {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if !errors.Is(err, tc.wantIs) {
+				t.Fatalf("err = %v", err)
+			}
+			if tc.inErr != "" && (err == nil || !strings.Contains(err.Error(), tc.inErr)) {
+				t.Errorf("err = %v", err)
+			}
+			if tc.wantIs == ErrUploadFailed {
+				fe, ok := errors.AsType[*UploadFailedError](err)
+				if !ok || fe.State != "failed" || fe.Message != tc.message {
+					t.Errorf("err = %#v", err)
+				}
+			}
+			if int(polls.Load()) != tc.wantPolls {
+				t.Errorf("polls = %d", polls.Load())
+			}
+		})
+	}
+}
+
 func TestUploadChangelogFailureIsTyped(t *testing.T) {
 	f := newFakeNexus(t, 0, 0)
 	f.failChangelog = true

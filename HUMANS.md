@@ -12,31 +12,31 @@ go get github.com/Rethunk-Tech/go-nexusmods
 package main
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"os"
-	"time"
+ "context"
+ "fmt"
+ "net/http"
+ "os"
+ "time"
 
-	"github.com/Rethunk-Tech/go-httpkit"
-	"github.com/Rethunk-Tech/go-nexusmods"
+ "github.com/Rethunk-Tech/go-httpkit"
+ "github.com/Rethunk-Tech/go-nexusmods"
 )
 
 func main() {
-	c := nexusmods.New("MyApp", "1.0.0")
-	c.HTTP = &http.Client{Transport: &httpkit.Transport{UserAgent: "MyApp/1.0.0"}, Timeout: 30 * time.Second}
-	c = c.WithKey(os.Getenv("NEXUS_API_KEY"))
+ c := nexusmods.New("MyApp", "1.0.0")
+ c.HTTP = &http.Client{Transport: &httpkit.Transport{UserAgent: "MyApp/1.0.0"}, Timeout: 30 * time.Second}
+ c = c.WithKey(os.Getenv("NEXUS_API_KEY"))
 
-	stardew := nexusmods.Title{Domain: "stardewvalley", ID: 1303}
-	files, err := c.Files(context.Background(), stardew, 541)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	for _, f := range files {
-		fmt.Println(f.FileID, f.Name, f.Version)
-	}
-	fmt.Println(c.Limits().Hourly.Remaining)
+ stardew := nexusmods.Title{Domain: "stardewvalley", ID: 1303}
+ files, err := c.Files(context.Background(), stardew, 541)
+ if err != nil {
+  fmt.Println(err)
+  return
+ }
+ for _, f := range files {
+  fmt.Println(f.FileID, f.Name, f.Version)
+ }
+ fmt.Println(c.Limits().Hourly.Remaining)
 }
 ```
 
@@ -48,7 +48,7 @@ func main() {
 | `WithKey`, `WithBearer` | The copy shares the budget and caches. A bearer token is asked for on every request. |
 | User-Agent, reachability | Not set here: give `Client.HTTP` an `httpkit.Transport`; its `OnResult` sees every round trip, the archive mirror's included. |
 | Budget | No request is sent while a window has `LimitFloor` or fewer calls left and has not reset; the refusal is a `*httpkit.RateLimitError`. `SetLimitsHook` runs unlocked. |
-| Errors | 401 is `ErrUnauthorized`; 429 is `*httpkit.RateLimitError` (reset from `X-Rl-*`, else `Retry-After`, else zero); other non-2xx is `*httpkit.StatusError`, or `*MessageError` when Nexus sent a message. |
+| Errors | 401 is `ErrUnauthorized`; 429 is `*httpkit.RateLimitError` (reset from `X-Rl-*`, else `Retry-After`, else zero); other non-2xx is `*httpkit.StatusError`, or `*MessageError` when Nexus sent a message. An upload that stays in progress through the poll budget is `ErrUploadPending` naming the last state; a terminal failure (`failed`) is `*UploadFailedError` (`ErrUploadFailed`). |
 | `DownloadLinks` | Redeems an `NXMLink`; refuses an empty `Key` or `Expires <= 0` before any request. Returns Nexus's mirror order. |
 | `PremiumDownloadLinks`, `PremiumCollectionArchive` | Ask with no key; a free account gets `ErrPremiumRequired`. |
 | Mod files | Never fetched or written by this package. |

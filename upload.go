@@ -61,6 +61,7 @@ type uploadSession struct {
 	Data struct {
 		ID           string   `json:"id"`
 		State        string   `json:"state"`
+		Message      string   `json:"message"`
 		PresignedURL string   `json:"presigned_url"`
 		PartSize     int64    `json:"part_size_bytes"`
 		PartURLs     []string `json:"part_presigned_urls"`
@@ -192,16 +193,39 @@ func (u *Uploader) store(ctx context.Context, path string) (string, error) {
 // ErrUploadPending means Nexus was still processing an upload when the wait ran out.
 var ErrUploadPending = errors.New("nexus is still processing the upload")
 
+// ErrUploadFailed means Nexus reported a terminal failure while processing an upload.
+var ErrUploadFailed = errors.New("nexus failed to process the upload")
+
+// UploadFailedError is a terminal upload state. errors.Is against ErrUploadFailed.
+type UploadFailedError struct {
+	State, Message string
+}
+
+func (e *UploadFailedError) Error() string {
+	if e.Message == "" {
+		return "nexus upload " + e.State
+	}
+	return "nexus upload " + e.State + ": " + e.Message
+}
+
+func (e *UploadFailedError) Unwrap() error { return ErrUploadFailed }
+
 // wait polls the upload until Nexus has processed it.
 func (u *Uploader) wait(ctx context.Context, id string) error {
 	poll := cmp.Or(u.PollInterval, defaultPoll)
+	var last string
 	for attempt := 1; attempt <= uploadPolls; attempt++ {
 		var up uploadSession
 		if err := u.call(ctx, http.MethodGet, "/uploads/"+url.PathEscape(id), nil, &up); err != nil {
 			return err
 		}
-		if up.Data.State == "available" {
+		last = up.Data.State
+		switch last {
+		case "available":
 			return nil
+		case "failed":
+			// Documented terminal failure: further polls cannot recover.
+			return &UploadFailedError{State: last, Message: up.Data.Message}
 		}
 		t := time.NewTimer(min(poll*time.Duration(attempt), maxPollWait))
 		select {
@@ -211,7 +235,7 @@ func (u *Uploader) wait(ctx context.Context, id string) error {
 		case <-t.C:
 		}
 	}
-	return ErrUploadPending
+	return fmt.Errorf("%w: %s", ErrUploadPending, last)
 }
 
 // ChangelogError is Upload's failure to add the changelog after the file was uploaded and versioned: the file is up,
