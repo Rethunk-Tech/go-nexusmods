@@ -185,7 +185,7 @@ func (c *Client) modsChunk(ctx context.Context, domain string, ids []int, out ma
 		}
 		info.Author = cmp.Or(info.Author, n.Uploader.Name)
 		for _, r := range n.Requirements.Nexus.Nodes {
-			req := Requirement{Name: r.Name, URL: r.URL, Notes: r.Notes, External: true}
+			req := Requirement{Name: r.Name, URL: webLink(r.URL), Notes: r.Notes, External: true}
 			if id, err := strconv.Atoi(r.ModID); err == nil && id > 0 && !r.External && r.GameID == strconv.Itoa(n.GameID) {
 				req.ModID, req.URL, req.External = id, ModURL(domain, id), false
 			} else if d, id, ok := ParseModURL(r.URL); ok && strings.EqualFold(d, domain) {

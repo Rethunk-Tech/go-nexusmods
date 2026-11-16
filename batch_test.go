@@ -114,3 +114,28 @@ func TestModsByDomainReadsRequirements(t *testing.T) {
 		t.Fatalf("requirements = %+v", r)
 	}
 }
+
+func TestModsByDomainDropsNonWebRequirementURLs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"data":{"legacyModsByDomain":{"nodes":[{"modId":1,"gameId":1,"name":"Mod",
+			"modRequirements":{"nexusRequirements":{"nodes":[
+				{"modId":"","modName":"JS","url":"javascript:alert(1)","externalRequirement":true,"notes":"","gameId":""},
+				{"modId":"","modName":"File","url":"file:///etc/passwd","externalRequirement":true,"notes":"","gameId":""},
+				{"modId":"","modName":"Settings","url":"ms-settings:","externalRequirement":true,"notes":"","gameId":""}]}}}]}}}`)
+	}))
+	t.Cleanup(srv.Close)
+	c := New("TestApp", "test").WithKey("k")
+	c.BaseURL = srv.URL
+	got, err := c.ModsByDomain(t.Context(), "stardewvalley", []int{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Requirement{
+		{Name: "JS", External: true},
+		{Name: "File", External: true},
+		{Name: "Settings", External: true},
+	}
+	if r := got[1].Page().Requirements; !slices.Equal(r, want) {
+		t.Fatalf("requirements = %+v", r)
+	}
+}
