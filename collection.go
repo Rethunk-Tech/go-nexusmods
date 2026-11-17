@@ -108,7 +108,7 @@ func (i idleReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-const collectionQuery = `query($slug:String!,$domain:String,$revision:Int){collectionRevision(slug:$slug,domainName:$domain,revision:$revision,viewAdultContent:true){revisionNumber downloadLink installationInfo externalResources{name resourceType resourceUrl optional version author} collection{name slug user{name}} modFiles{fileId optional file{modId name version mod{name}}}}}`
+const collectionQuery = `query($slug:String!,$domain:String,$revision:Int){collectionRevision(slug:$slug,domainName:$domain,revision:$revision,viewAdultContent:true){revisionNumber downloadLink installationInfo externalResources{name resourceType resourceUrl optional version author} collection{name slug user{name}} modFiles{fileId optional file{modId}}}}`
 
 // Collection is one revision of a Nexus collection. It has no JSON tags: the Go field names are its stored form.
 type Collection struct {

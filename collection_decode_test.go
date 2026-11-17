@@ -66,6 +66,9 @@ func TestCollectionDropsNonWebLinks(t *testing.T) {
 }
 
 func TestCollectionReadsOverGraphQL(t *testing.T) {
+	if strings.Contains(collectionQuery, "mod{name}") || strings.Contains(collectionQuery, "file{modId name") {
+		t.Fatalf("collection query asks for file fields CollectionFile does not keep: %s", collectionQuery)
+	}
 	var vars map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v2/graphql" || r.Header.Get("Application-Name") != "TestApp" || r.Header.Get("Apikey") != "" {
