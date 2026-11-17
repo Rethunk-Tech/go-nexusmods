@@ -115,3 +115,42 @@ func FuzzDecodeCollection(f *testing.F) {
 		}
 	})
 }
+
+// FuzzHTTPSMirror holds that a kept mirror URI is https: the archive is fetched, so any other scheme is dropped.
+func FuzzHTTPSMirror(f *testing.F) {
+	f.Add("https://mirror.test/archive")
+	f.Add("HTTPS://mirror.test/archive")
+	f.Add("http://mirror.test/archive")
+	f.Add("javascript:alert(1)")
+	f.Add("")
+	f.Fuzz(func(t *testing.T, raw string) {
+		got := httpsMirror(raw)
+		if got == "" {
+			return
+		}
+		u, err := url.Parse(got)
+		if err != nil || !strings.EqualFold(u.Scheme, "https") {
+			t.Fatalf("kept mirror %q", got)
+		}
+	})
+}
+
+// FuzzCollectionLink holds that an accepted download path stays under /v2/collections/ with only plain segments.
+func FuzzCollectionLink(f *testing.F) {
+	f.Add("/v2/collections/636/revisions/948/download_link")
+	f.Add("/v2/collections/x/revisions/1/download_link")
+	f.Add("/v2/collections/../graphql")
+	f.Add("/v2/collections/%2e%2e/%2e%2e/v1/users/validate.json")
+	f.Add("/v2/collections/x?y=1")
+	f.Add("/v2/collections/x#f")
+	f.Add("/v2/collections/")
+	f.Add("https://evil.test/v2/collections/x")
+	f.Fuzz(func(t *testing.T, p string) {
+		if !collectionLink.MatchString(p) {
+			return
+		}
+		if !strings.HasPrefix(p, "/v2/collections/") || strings.Contains(p, "..") || strings.ContainsAny(p, "?#") {
+			t.Fatalf("accepted escaping path %q", p)
+		}
+	})
+}

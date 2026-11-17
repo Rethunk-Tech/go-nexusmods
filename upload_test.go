@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -192,6 +193,33 @@ func TestStorageURLRefusesCleartextAndForeignHosts(t *testing.T) {
 	if _, err := storageURL("https://bucket.example/part", "https://api.nexusmods.com"); err != nil {
 		t.Error(err)
 	}
+}
+
+// FuzzStorageURL holds that a kept upload address is https, or plain http only to the same host as an http API.
+func FuzzStorageURL(f *testing.F) {
+	f.Add("https://bucket.example/part", "https://api.nexusmods.com")
+	f.Add("http://bucket.example/part", "https://api.nexusmods.com")
+	f.Add("http://other.example/part", "http://127.0.0.1:1")
+	f.Add("http://127.0.0.1:1/part", "http://127.0.0.1:1")
+	f.Add("/relative", "https://api.nexusmods.com")
+	f.Add("", "https://api.nexusmods.com")
+	f.Fuzz(func(t *testing.T, raw, apiBase string) {
+		got, err := storageURL(raw, apiBase)
+		if err != nil {
+			return
+		}
+		u, perr := url.Parse(got)
+		if perr != nil || u.Host == "" {
+			t.Fatalf("accepted unusable address %q", got)
+		}
+		if u.Scheme == "https" {
+			return
+		}
+		api, aerr := url.Parse(apiBase)
+		if u.Scheme != "http" || aerr != nil || api.Scheme != "http" || u.Host != api.Host {
+			t.Fatalf("accepted %q under %q", got, apiBase)
+		}
+	})
 }
 
 func TestUploadRefusesPartCountsThatDoNotMatch(t *testing.T) {

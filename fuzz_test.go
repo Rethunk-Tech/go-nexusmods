@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"net/url"
 	"testing"
 )
 
@@ -38,7 +39,20 @@ func FuzzDecoders(f *testing.F) {
 		_, _ = c.Collection(ctx, "stardewvalley", "x", 0)
 		_, _ = c.ScanStatuses(ctx, stardew, 1)
 		_, _ = c.TrackedMods(ctx)
-		_, _ = c.ModsByDomain(ctx, stardew.Domain, []int{1, 2})
+		mods, err := c.ModsByDomain(ctx, stardew.Domain, []int{1, 2})
+		if err == nil {
+			for _, m := range mods {
+				for _, r := range m.Requirements {
+					if r.URL == "" {
+						continue
+					}
+					u, perr := url.Parse(r.URL)
+					if perr != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+						t.Fatalf("kept requirement URL %q", r.URL)
+					}
+				}
+			}
+		}
 		_, _ = c.FilesOf(ctx, stardew, []int{1})
 	})
 }
