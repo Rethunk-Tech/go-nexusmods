@@ -125,7 +125,12 @@ func storageURL(raw, apiBase string) (string, error) {
 	if err != nil || u.Host == "" {
 		return "", errors.New("nexus: gave an unusable upload address")
 	}
-	if api, err := url.Parse(apiBase); u.Scheme != "https" && (err != nil || api.Scheme != "http" || u.Host != api.Host) {
+	if u.Scheme == "https" {
+		return raw, nil
+	}
+	// //host/path has no scheme and would follow whatever the client uses.
+	api, err := url.Parse(apiBase)
+	if err != nil || u.Scheme != "http" || api.Scheme != "http" || u.Host != api.Host {
 		return "", errors.New("nexus: gave an upload address that is not https")
 	}
 	return raw, nil
