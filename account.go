@@ -99,17 +99,9 @@ func (c *Client) Abstain(ctx context.Context, t Title, modID int, version string
 	return c.endorse(ctx, fmt.Sprintf("/v1/games/%s/mods/%d/abstain.json", url.PathEscape(t.Domain), modID), version)
 }
 
-func (c *Client) cache() *trackedCache {
-	if c.track != nil {
-		return c.track
-	}
-	c.track = &trackedCache{}
-	return c.track
-}
-
 // TrackedMods lists mods the signed-in user tracks. The list is reused for trackedCacheTTL.
 func (c *Client) TrackedMods(ctx context.Context) ([]TrackedMod, error) {
-	cache := c.cache()
+	cache := c.track
 	cache.mu.Lock()
 	if cache.hasList && c.now().Sub(cache.at) < trackedCacheTTL {
 		out := append([]TrackedMod(nil), cache.mods...)
@@ -145,7 +137,7 @@ type trackBody struct {
 func (c *Client) ForgetTracked() { c.invalidateTracked() }
 
 func (c *Client) invalidateTracked() {
-	cache := c.cache()
+	cache := c.track
 	cache.mu.Lock()
 	cache.hasList = false
 	cache.mods = nil
