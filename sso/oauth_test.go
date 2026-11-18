@@ -2,6 +2,7 @@ package sso
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -329,5 +331,152 @@ func TestCleartextEndpointsAreRefusedExceptOnLoopback(t *testing.T) {
 	}
 	if _, err := o.Identify(t.Context(), "tok"); err == nil || !strings.Contains(err.Error(), "must be https://") {
 		t.Fatalf("a cleartext userinfo endpoint was used: %v", err)
+	}
+}
+
+func TestAuthorizeRefusesARunThatCannotStart(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		o    OAuth
+		in   string
+	}{
+		{name: "no browser", o: OAuth{ClientID: "c", Addr: "127.0.0.1:0"}, in: "no browser to open"},
+		{name: "cleartext endpoint", o: OAuth{ClientID: "c", Addr: "127.0.0.1:0", AuthBase: "http://users.nexusmods.com/oauth", OpenBrowser: func(string) error { return nil }}},
+		{name: "browser error", o: OAuth{ClientID: "c", Addr: "127.0.0.1:0", OpenBrowser: func(string) error { return errors.New("no display") }}, in: "no display"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := tc.o.Authorize(t.Context())
+			if err == nil || (tc.in != "" && !strings.Contains(err.Error(), tc.in)) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestACallbackMustMatchThisRun(t *testing.T) {
+	page := make(chan string, 1)
+	o := OAuth{ClientID: "c", Timeout: time.Second, Addr: "127.0.0.1:0", OpenBrowser: func(raw string) error {
+		u, _ := url.Parse(raw)
+		redir := u.Query().Get("redirect_uri")
+		state := u.Query().Get("state")
+		wrong, err := http.NewRequestWithContext(t.Context(), http.MethodGet, redir+"?code=X&state=other", nil)
+		if err != nil {
+			return err
+		}
+		resp, err := http.DefaultClient.Do(wrong)
+		if err != nil {
+			return err
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("wrong state status = %d", resp.StatusCode)
+		}
+		empty, err := http.NewRequestWithContext(t.Context(), http.MethodGet, redir+"?state="+state, nil)
+		if err != nil {
+			return err
+		}
+		resp, err = http.DefaultClient.Do(empty)
+		if err != nil {
+			return err
+		}
+		b, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		page <- string(b)
+		// A second matching redirect must not block now that the outcome is already queued.
+		again, err := http.NewRequestWithContext(t.Context(), http.MethodGet, redir+"?state="+state, nil)
+		if err != nil {
+			return err
+		}
+		if resp, err = http.DefaultClient.Do(again); err == nil {
+			_ = resp.Body.Close()
+		}
+		return nil
+	}}
+	_, err := o.Authorize(t.Context())
+	if err == nil || !strings.Contains(err.Error(), "no code returned") {
+		t.Fatalf("err = %v", err)
+	}
+	if p := <-page; p != defaultFailText {
+		t.Fatalf("page = %q", p)
+	}
+}
+
+func TestAuthorizeReportsTheCallersCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	var saw State
+	o := OAuth{ClientID: "c", Addr: "127.0.0.1:0", OpenBrowser: func(string) error {
+		cancel()
+		return nil
+	}, OnState: func(s State) { saw = s }}
+	_, err := o.Authorize(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+	if saw != Waiting {
+		t.Fatalf("state = %q", saw)
+	}
+}
+
+func TestFreshRefusesAnExpiredGrantWithNoRefreshToken(t *testing.T) {
+	o := OAuth{ClientID: "c", Store: &memStore{t: Tokens{Access: "A"}, has: true}}
+	_, err := o.Fresh(t.Context())
+	if err == nil || !strings.Contains(err.Error(), "no refresh token is stored") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestFreshReturnsAStillValidGrantWithoutRefreshing(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	store := &memStore{t: Tokens{Access: "A", Refresh: "R", Expires: now.Add(time.Hour)}, has: true}
+	o := OAuth{ClientID: "c", Now: func() time.Time { return now }, Store: store, AuthBase: "https://example.invalid"}
+	got, err := o.Fresh(t.Context())
+	if err != nil || got.Access != "A" || got.Refresh != "R" {
+		t.Fatalf("got %+v err %v", got, err)
+	}
+}
+
+type loadNStore struct {
+	t     Tokens
+	loads int
+	err   error
+}
+
+func (s *loadNStore) Load() (Tokens, error) {
+	s.loads++
+	if s.loads > 1 {
+		return Tokens{}, s.err
+	}
+	return s.t, nil
+}
+
+func (s *loadNStore) Save(Tokens) error { return nil }
+
+func TestFreshSurfacesAGrantThatVanishesAfterTheLock(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	store := &loadNStore{t: Tokens{Access: "old", Refresh: "R", Expires: now.Add(-time.Hour)}, err: ErrNoTokens}
+	o := OAuth{ClientID: "c", Now: func() time.Time { return now }, Store: store}
+	if _, err := o.Fresh(t.Context()); !errors.Is(err, ErrNoTokens) || store.loads != 2 {
+		t.Fatalf("err = %v, loads = %d", err, store.loads)
+	}
+}
+
+func TestFreshUsesTheLockFileAroundRefresh(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	lock := filepath.Join(t.TempDir(), "tokens.lock")
+	store := &memStore{t: Tokens{Access: "old", Refresh: "R", Expires: now.Add(-time.Hour)}, has: true}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"N","refresh_token":"R2","expires_in":3600}`))
+	}))
+	t.Cleanup(srv.Close)
+	o := OAuth{ClientID: "cid", AuthBase: srv.URL, Now: func() time.Time { return now }, Store: store, LockFile: lock}
+	got, err := o.Fresh(t.Context())
+	if err != nil || got.Access != "N" || got.Refresh != "R2" || store.t.Access != "N" {
+		t.Fatalf("locked refresh: %+v, %v, stored %+v", got, err, store.t)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	o.Store = &memStore{t: Tokens{Access: "old", Refresh: "R", Expires: now.Add(-time.Hour)}, has: true}
+	if _, err := o.Fresh(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled lock wait: %v", err)
 	}
 }

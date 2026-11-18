@@ -1,6 +1,7 @@
 package nexusmods
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -282,7 +283,7 @@ func TestWaitUploadStates(t *testing.T) {
 		inErr     string
 		message   string
 	}{
-		{name: "failed", states: []string{"failed"}, wantIs: ErrUploadFailed, wantPolls: 1, message: "rejected"},
+		{name: "failed", states: []string{"failed"}, wantIs: ErrUploadFailed, wantPolls: 1, message: "rejected", inErr: "nexus upload failed: rejected"},
 		{name: "created then available", states: []string{"created", "available"}, wantPolls: 2},
 		{name: "unknown", states: []string{"blorble"}, wantIs: ErrUploadPending, wantPolls: uploadPolls, inErr: "blorble"},
 	} {
@@ -338,5 +339,233 @@ func TestUploadChangelogFailureIsTyped(t *testing.T) {
 	}
 	if _, ok := errors.AsType[*httpkit.StatusError](err); !ok {
 		t.Errorf("cause lost: %v", err)
+	}
+}
+
+func TestUploadRefusesASessionThatCannotStoreTheFile(t *testing.T) {
+	pkg := writePackage(t, "0123456789")
+	release := Release{Path: pkg, ModFileID: "1", Name: "n", Version: "1.0.0"}
+	for _, tc := range []struct {
+		name    string
+		path    string
+		max     int64
+		handle  func(http.ResponseWriter, *http.Request, string)
+		wantErr string
+	}{
+		{
+			name: "missing archive",
+			path: filepath.Join(t.TempDir(), "gone.zip"),
+		},
+		{
+			name: "no upload address",
+			handle: func(w http.ResponseWriter, r *http.Request, _ string) {
+				if r.URL.Path == "/v3/uploads" {
+					_, _ = w.Write([]byte(`{"data":{"id":"up1"}}`))
+					return
+				}
+				http.NotFound(w, r)
+			},
+			wantErr: "without an upload address",
+		},
+		{
+			name: "cleartext storage",
+			handle: func(w http.ResponseWriter, r *http.Request, _ string) {
+				if r.URL.Path == "/v3/uploads" {
+					_, _ = w.Write([]byte(`{"data":{"id":"up1","presigned_url":"http://evil.example/part"}}`))
+					return
+				}
+				http.NotFound(w, r)
+			},
+			wantErr: "not https",
+		},
+		{
+			name: "storage rejects the PUT",
+			handle: func(w http.ResponseWriter, r *http.Request, origin string) {
+				switch r.URL.Path {
+				case "/v3/uploads":
+					_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","presigned_url":"%s/s3/whole"}}`, origin)
+				case "/s3/whole":
+					w.WriteHeader(http.StatusBadRequest)
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		},
+		{
+			name: "multipart session rejected",
+			max:  5,
+			handle: func(w http.ResponseWriter, r *http.Request, _ string) {
+				if r.URL.Path == "/v3/uploads/multipart" {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+				http.NotFound(w, r)
+			},
+		},
+		{
+			name: "part without an ETag",
+			max:  5,
+			handle: func(w http.ResponseWriter, r *http.Request, origin string) {
+				switch {
+				case r.URL.Path == "/v3/uploads/multipart":
+					_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","part_size_bytes":4,"part_presigned_urls":["%s/s3/part1","%s/s3/part2","%s/s3/part3"],"complete_presigned_url":"%s/s3/complete"}}`, origin, origin, origin, origin)
+				case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/s3/"):
+				default:
+					http.NotFound(w, r)
+				}
+			},
+			wantErr: "no ETag",
+		},
+		{
+			name: "part PUT rejected",
+			max:  5,
+			handle: func(w http.ResponseWriter, r *http.Request, origin string) {
+				switch {
+				case r.URL.Path == "/v3/uploads/multipart":
+					_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","part_size_bytes":4,"part_presigned_urls":["%s/s3/part1","%s/s3/part2","%s/s3/part3"],"complete_presigned_url":"%s/s3/complete"}}`, origin, origin, origin, origin)
+				case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/s3/"):
+					w.WriteHeader(http.StatusBadRequest)
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := New("App", "9.9.9").WithKey("k")
+			if tc.handle != nil {
+				var srv *httptest.Server
+				srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					tc.handle(w, r, srv.URL)
+				}))
+				t.Cleanup(srv.Close)
+				c.HTTP, c.BaseURL = srv.Client(), srv.URL
+			}
+			r := release
+			if tc.path != "" {
+				r.Path = tc.path
+			}
+			err := (&Uploader{c: c, PollInterval: time.Millisecond, singleMax: tc.max}).Upload(t.Context(), r)
+			if err == nil || (tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestWaitStopsWhenPollingCannotContinue(t *testing.T) {
+	t.Run("poll rejected", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/v3/uploads/up1" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			http.NotFound(w, r)
+		}))
+		t.Cleanup(srv.Close)
+		c := New("App", "9.9.9").WithKey("k")
+		c.HTTP, c.BaseURL = srv.Client(), srv.URL
+		err := (&Uploader{c: c, PollInterval: time.Millisecond}).wait(t.Context(), "up1")
+		if _, ok := errors.AsType[*httpkit.StatusError](err); !ok {
+			t.Fatalf("err = %v", err)
+		}
+	})
+	t.Run("caller cancelled", func(t *testing.T) {
+		var polls atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/v3/uploads/up1" {
+				http.NotFound(w, r)
+				return
+			}
+			polls.Add(1)
+			_, _ = w.Write([]byte(`{"data":{"id":"up1","state":"created"}}`))
+		}))
+		t.Cleanup(srv.Close)
+		c := New("App", "9.9.9").WithKey("k")
+		c.HTTP, c.BaseURL = srv.Client(), srv.URL
+		ctx, cancel := context.WithCancel(t.Context())
+		done := make(chan error, 1)
+		go func() {
+			done <- (&Uploader{c: c, PollInterval: time.Hour}).wait(ctx, "up1")
+		}()
+		for polls.Load() == 0 {
+			time.Sleep(time.Millisecond)
+		}
+		// The poll must finish before cancel, or call() fails and the wait on the timer is never reached.
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+		if err := <-done; !errors.Is(err, context.Canceled) {
+			t.Fatalf("err = %v", err)
+		}
+	})
+}
+
+func TestUploadStopsAfterTheFileIsStoredIfNexusDoesNotFinish(t *testing.T) {
+	pkg := writePackage(t, "x")
+	for _, tc := range []struct {
+		name   string
+		handle func(http.ResponseWriter, *http.Request, string)
+		is     error
+		inErr  string
+	}{
+		{
+			name: "finalise rejected",
+			handle: func(w http.ResponseWriter, r *http.Request, origin string) {
+				switch r.URL.Path {
+				case "/v3/uploads":
+					_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","presigned_url":"%s/s3/whole"}}`, origin)
+				case "/s3/whole":
+					w.Header().Set("ETag", `"e"`)
+				case "/v3/uploads/up1/finalise":
+					w.WriteHeader(http.StatusInternalServerError)
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		},
+		{
+			name: "processing failed with no message",
+			handle: func(w http.ResponseWriter, r *http.Request, origin string) {
+				switch r.URL.Path {
+				case "/v3/uploads":
+					_, _ = fmt.Fprintf(w, `{"data":{"id":"up1","presigned_url":"%s/s3/whole"}}`, origin)
+				case "/s3/whole":
+					w.Header().Set("ETag", `"e"`)
+				case "/v3/uploads/up1/finalise":
+					_, _ = w.Write([]byte(`{"data":{"id":"up1","state":"created"}}`))
+				case "/v3/uploads/up1":
+					_, _ = w.Write([]byte(`{"data":{"id":"up1","state":"failed"}}`))
+				default:
+					http.NotFound(w, r)
+				}
+			},
+			is:    ErrUploadFailed,
+			inErr: "nexus upload failed",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var srv *httptest.Server
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				tc.handle(w, r, srv.URL)
+			}))
+			t.Cleanup(srv.Close)
+			c := New("App", "9.9.9").WithKey("k")
+			c.HTTP, c.BaseURL = srv.Client(), srv.URL
+			err := (&Uploader{c: c, PollInterval: time.Millisecond}).Upload(t.Context(), Release{Path: pkg, ModFileID: "1", Name: "n", Version: "1.0.0"})
+			if err == nil {
+				t.Fatal("succeeded")
+			}
+			if tc.is != nil && !errors.Is(err, tc.is) {
+				t.Fatalf("err = %v", err)
+			}
+			if tc.inErr != "" && err.Error() != tc.inErr {
+				t.Fatalf("err = %v", err)
+			}
+			if tc.is == nil {
+				if _, ok := errors.AsType[*httpkit.StatusError](err); !ok {
+					t.Fatalf("err = %v", err)
+				}
+			}
+		})
 	}
 }
