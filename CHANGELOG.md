@@ -6,6 +6,8 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-21
+
 ### Fixed
 
 - Upload: scheme-less storage URLs are refused, storage redirects may not downgrade to http, and terminal upload states fail fast.
@@ -86,7 +88,8 @@ Notable changes to `go-nexusmods`. The format follows
 - `ParseNXM`, `NXMDomain`, `ModURL`, `ParseModURL` and `NewerFile`.
 - Package `sso`: legacy SSO (`Legacy`) and OAuth 2 PKCE (`OAuth`) with a caller-supplied `TokenStore`.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.5.0...v0.6.0
 [0.4.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Rethunk-Tech/go-nexusmods/compare/v0.2.0...v0.3.0
