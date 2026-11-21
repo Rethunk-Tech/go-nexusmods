@@ -6,6 +6,18 @@ Notable changes to `go-nexusmods`. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Upload: scheme-less storage URLs are refused, storage redirects may not downgrade to http, and terminal upload states fail fast.
+- SSO: a cleartext `AuthBase` is refused in `Identify`, and the access token stays off a userinfo redirect.
+- An empty bearer token is refused instead of sent, and the game domain is escaped in v1 request paths.
+- A rate-limit reset no Nexus window can have is ignored.
+- `Track` swallows a 422 only when the mod is already tracked.
+- `Collection` maps every GraphQL error to not found and picks the first https download link, and `FilesOf` treats GraphQL errors as these mods have no files.
+- `ScanStatuses` no longer caches a GraphQL failure as no scans, and no longer hands out the live cache map.
+- Batch requests drop non-http requirement URLs from GraphQL nodes.
+- Mod page links accept the default HTTPS port, and zero-padded archive timestamps are rejected as filenames.
+
 ## [0.6.0] - 2026-11-07
 
 ### Added
