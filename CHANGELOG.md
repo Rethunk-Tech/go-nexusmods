@@ -18,6 +18,10 @@ Notable changes to `go-nexusmods`. The format follows
 - Batch requests drop non-http requirement URLs from GraphQL nodes.
 - Mod page links accept the default HTTPS port, and zero-padded archive timestamps are rejected as filenames.
 
+### Added
+
+- `ErrUploadFailed` and `UploadFailedError` report an upload that reached a terminal failed state.
+
 ## [0.6.0] - 2026-11-07
 
 ### Added
